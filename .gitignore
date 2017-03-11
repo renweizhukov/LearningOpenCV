@@ -1,3 +1,11 @@
+# Eclipse build output directories.
+Debug/
+Release/
+
+# CMake build files
+HelloWorld/build/CMakeFiles/
+HelloWorld/build/helloworld
+
 # Compiled Object files
 *.slo
 *.lo
@@ -27,3 +35,4 @@
 *.exe
 *.out
 *.app
+/Debug/
