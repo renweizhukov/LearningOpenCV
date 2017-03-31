@@ -10,6 +10,7 @@
 
 #include <cstdio>
 #include <vector>
+#include <chrono>
 #include "opencv2/core.hpp"
 #include "opencv2/features2d.hpp"
 #include "opencv2/imgcodecs.hpp"
@@ -19,6 +20,8 @@
 using namespace std;
 using namespace cv;
 using namespace cv::xfeatures2d;
+
+typedef std::chrono::high_resolution_clock Clock;
 
 // Forward definition of the function readme().
 void readme();
@@ -35,16 +38,17 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
-	// 0. Load the two images and convert them into the single-channel grayscale images
-	// if they are not.
-	Mat img1 = imread(argv[1], IMREAD_GRAYSCALE);
-	Mat img2 = imread(argv[2], IMREAD_GRAYSCALE);
+	// 0. Load the two images.
+	Mat img1 = imread(argv[1]);
+	Mat img2 = imread(argv[2]);
 
 	if (img1.empty() || img2.empty())
 	{
 		printf("Error reading images!!\n");
 		return -1;
 	}
+
+	auto tStart = Clock::now();
 
 	// 1. Detect the keypoints using the SURF detector and compute the descriptors which
 	// somehow describe the keypoints and can be used for comparing two sets of keypoints.
@@ -59,6 +63,12 @@ int main(int argc, char** argv)
 	surfDetector->detectAndCompute(img1, noArray(), keypoints1, descriptors1);
 	surfDetector->detectAndCompute(img2, noArray(), keypoints2, descriptors2);
 
+	auto tDetectAndComputeEnd = Clock::now();
+
+	printf("======================================================================\n");
+	printf("The time for the SURF keypoint detection and the descriptor computation: %ld milliseconds\n",
+			chrono::duration_cast<chrono::milliseconds>(tDetectAndComputeEnd - tStart).count());
+
 	// 2. Match the two descriptors using the FLANN matcher.
 	FlannBasedMatcher flannMatcher;
 	vector<DMatch> matches;
@@ -66,6 +76,12 @@ int main(int argc, char** argv)
 	// There are two match methods: one for object recognition and the other for tracking.
 	// Here we are using the one for tracking.
 	flannMatcher.match(descriptors1, descriptors2, matches);
+
+	auto tMatchEnd = Clock::now();
+
+	printf("======================================================================\n");
+	printf("The time for the FLANN matching: %ld milliseconds\n",
+			chrono::duration_cast<chrono::milliseconds>(tMatchEnd - tDetectAndComputeEnd).count());
 
 	// Traverse all the matches of the keypoint descriptors and obtain the min and max distances.
 	double minDist = DBL_MAX;
@@ -89,7 +105,7 @@ int main(int argc, char** argv)
 	printf("Min Dist: %f \n", minDist);
 	printf("Max Dist: %f \n", maxDist);
 
-	// Find only "good" matches, i.e., whose distance is less than 2*minDist, or a small preset
+	// 3. Find only "good" matches, i.e., whose distance is less than 2*minDist, or a small preset
 	// threshold (e.g., 0.02) in case that minDist is very small.
 	const double presetMaxGoodDist = 0.02;
 	vector<DMatch> goodMatches;
@@ -115,15 +131,15 @@ int main(int argc, char** argv)
 
 	// Display the percentage of "good" matches.
 	printf("======================================================================\n");
-	printf("Good Match percentage = %f\%\n", 100.0 * goodMatches.size() / matches.size());
+	printf("Good Match percentage = %f%%\n", 100.0 * goodMatches.size() / keypoints1.size());
 
 	// Display detected matches in the console.
 	printf("======================================================================\n");
-	for (int matchIndex = 0; matchIndex < static_cast<int>(goodMatches.size()); matchIndex++)
+	for (int goodMatchIndex = 0; goodMatchIndex < static_cast<int>(goodMatches.size()); goodMatchIndex++)
 	{
 		printf("Good Match [%d]: keypoint 1: %d <--> keypoint 2: %d with distance = %f\n",
-				matchIndex, goodMatches[matchIndex].queryIdx, goodMatches[matchIndex].trainIdx,
-				goodMatches[matchIndex].distance);
+				goodMatchIndex, goodMatches[goodMatchIndex].queryIdx, goodMatches[goodMatchIndex].trainIdx,
+				goodMatches[goodMatchIndex].distance);
 	}
 
 	waitKey(0);
