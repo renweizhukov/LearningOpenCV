@@ -1,8 +1,12 @@
 // Modified from Example 2-5 in the book "Learning OpenCV 3: Computer Vision in C++ with the OpenCV Library".
 
+#include <cstdio>
+#include <string>
+
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 
+using namespace std;
 using namespace cv;
 
 int main(int argc, char** argv)
@@ -34,6 +38,31 @@ int main(int argc, char** argv)
   // Show the smoothed image in the output window
   //
   imshow("Example 2-5-out", image_out);
+
+  // Save the image
+  //
+  string fileName(argv[1]);
+  size_t dotPos = fileName.find_last_of('.');
+  if (dotPos != string::npos)
+  {
+	  fileName = fileName.substr(0, dotPos) + "-new" + fileName.substr(dotPos);
+  }
+  else
+  {
+	  // The file name doesn't contain an extension.
+	  fileName += ".jpg";
+  }
+  printf("Saving the blurred image to %s.\n", fileName.c_str());
+  try{
+	  imwrite(fileName, image_out);
+  }
+  catch (runtime_error& ex)
+  {
+	  printf("Exception converting image to PNG format: %s\n", ex.what());
+	  return 1;
+  }
+
+  printf("Saved the blurred image to %s.\n", fileName.c_str());
 
   // Wait for the user to hit a key, windows will self destruct
   //

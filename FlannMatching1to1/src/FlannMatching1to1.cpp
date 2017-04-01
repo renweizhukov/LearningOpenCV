@@ -124,7 +124,7 @@ int main(int argc, char** argv)
 			goodMatches, imgMatches, Scalar::all(-1), Scalar::all(-1),
 			vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
 
-	namedWindow("Good matches", WINDOW_AUTOSIZE | WINDOW_KEEPRATIO | WINDOW_GUI_EXPANDED);
+	namedWindow("Good matches", WINDOW_NORMAL | WINDOW_KEEPRATIO | WINDOW_GUI_EXPANDED);
 
 	// Display the two images and connect the "good"-matched keypoints.
 	imshow("Good matches", imgMatches);

@@ -33,9 +33,25 @@ it will find the "good" matches and display them by connecting the "good"-matche
 ./FlannMatching1to1 [image1] [image2]
 ```
 
+One example:
+
+```bash
+./FlannMatching1to1 ../../Pictures/airplanes/image_0001.jpg ../../Pictures/image_0001-new.jpg
+```
+
 ## 7. FlannKnnMatching1to1
 
-TODO
+This executable is similar to FlannMatching1to1 where the main difference is that it uses the knnMatch() method of the FLANN matcher.
+
+```bash
+./FlannKnnMatching1to1 [image1] [image2]
+```
+
+One example:
+
+```bash
+./FlannKnnMatching1to1 ../../Pictures/airplanes/image_0001.jpg ../../Pictures/image_0001-new.jpg
+```
 
 ## 8. FlannMatching1toN
 
@@ -48,4 +64,24 @@ Note that the executable has two modes: slow and fast. While it will do the matc
 ./FlannMatching1toN [slow/fast] [source-image-directory] [target-image]
 ```
 
+Two examples:
 
+```bash
+./FlannMatching1toN slow ../../Pictures/airplanes ../../Pictures/image_0001-new.jpg
+./FlannMatching1toN fast ../../Pictures/airplanes ../../Pictures/image_0001-new.jpg
+```
+
+## 9. FlannKnnMatching1toN
+
+This executable is similar to FlannMatching1to1 where the main difference is that it uses the knnMatch() method of the FLANN matcher.
+
+```bash
+./FlannKnnMatching1toN [slow/fast] [source-image-directory] [target-image]
+```
+
+Two examples:
+
+```bash
+./FlannKnnMatching1toN slow ../../Pictures/airplanes ../../Pictures/image_0001-new.jpg
+./FlannKnnMatching1toN fast ../../Pictures/airplanes ../../Pictures/image_0001-new.jpg
+```
