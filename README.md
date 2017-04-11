@@ -55,20 +55,22 @@ One example:
 
 ## 8. FlannMatching1toN
 
-Given a directory of source images and a single target image, the executable will detect the keypoints via the SURF detector and compute the descriptors. Then it will match the descriptor vectors between 
+Given a directory of source images and a single target image, the executable will detect the keypoints via the SURF/ORB detector and compute the descriptors. Then it will match the descriptor vectors between 
 each source image and the target image using the knnMatch() method of the FLANN matcher. At the end, it will find the "good" matches and display them by connecting the "good"-matched keypoints between the best matched source image and the target image.
 
 Note that the executable has two modes: slow and fast. While it will do the match between the target image and each source image one-by-one in the slow mode, it will do the match between the target image and all the source images as a whole once in the fast mode. It is expected to see a significant running time reduction in the fast mode. 
 
 ```bash
-./FlannMatching1toN [slow/fast] [source-image-directory] [target-image]
+./FlannMatching1toN [surf/orb] [slow/fast] [source-image-directory] [target-image]
 ```
 
 Two examples:
 
 ```bash
-./FlannMatching1toN slow ../../Pictures/airplanes ../../Pictures/image_0001-new.jpg
-./FlannMatching1toN fast ../../Pictures/airplanes ../../Pictures/image_0001-new.jpg
+./FlannMatching1toN surf slow ../../Pictures/airplanes ../../Pictures/image_0001-new.jpg
+./FlannMatching1toN surf fast ../../Pictures/airplanes ../../Pictures/image_0001-new.jpg
+./FlannMatching1toN orb slow ../../Pictures/airplanes ../../Pictures/image_0001-new.jpg
+./FlannMatching1toN orb fast ../../Pictures/airplanes ../../Pictures/image_0001-new.jpg
 ```
 
 ## 9. FlannKnnMatching1toN
@@ -82,6 +84,8 @@ This executable is similar to FlannMatching1to1 where the main difference is tha
 Two examples:
 
 ```bash
-./FlannKnnMatching1toN slow ../../Pictures/airplanes ../../Pictures/image_0001-new.jpg
-./FlannKnnMatching1toN fast ../../Pictures/airplanes ../../Pictures/image_0001-new.jpg
+./FlannKnnMatching1toN surf slow ../../Pictures/airplanes ../../Pictures/image_0001-new.jpg
+./FlannKnnMatching1toN surf fast ../../Pictures/airplanes ../../Pictures/image_0001-new.jpg
+./FlannKnnMatching1toN orb slow ../../Pictures/airplanes ../../Pictures/image_0001-new.jpg
+./FlannKnnMatching1toN orb fast ../../Pictures/airplanes ../../Pictures/image_0001-new.jpg
 ```
