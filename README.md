@@ -89,3 +89,64 @@ Two examples:
 ./FlannKnnMatching1toN orb slow ../../Pictures/airplanes ../../Pictures/image_0001-new.jpg
 ./FlannKnnMatching1toN orb fast ../../Pictures/airplanes ../../Pictures/image_0001-new.jpg
 ```
+
+## 10. BowSvmClassifier
+
+This executable implements a simple object classifier with Bag-of-Word (BOW) and 1-vs-all SVM using OpenCV as introduced in http://www.morethantechnical.com/2011/08/25/a-simple-object-classifier-with-bag-of-words-using-opencv-2-3-w-code/. Note that it depends on a newer version 3.2.0 of OpenCV, and it is compiled and tested on Ubuntu 16.04LTS. 
+
+To display the information about the available commands and options, please run the help command.
+
+```bash
+$ ./BowSvmClassifier help
+```
+
+Besides the help command, this executable has three other commands: build, train, and test.
+
+### 10.1 Build the vocabulary.
+
+Below is an example build command.
+
+```bash
+./BowSvmClassifier build -d ./train-images -e ./descriptors.yml -v ./vocabulary.yml
+```
+
+The SURF descriptors of the images are written to descriptors.yml and the BOW vocabulary is written to vocabulary.yml. Note that the labelled images need to be stored in the following hierachical tree:
+
+```
+train-images
+├── label1
+│   ├── image11
+│   ├── image12
+│   └── image13
+└── label2
+    ├── image21
+    └── image22 
+``` 
+
+### 10.2 Train the 1-vs-all SVM classifiers.
+
+Below is an example train command.
+
+```bash
+./BowSvmClassifier train -p ./SvmClassifier -e ./descriptors.yml -v ./vocabulary.yml
+```
+
+The SURF descriptors of the train images are loaded from descriptor.yml, so they don't need to be computed again. The BOW vocabulary is loaded from vocabulary.yml. The 1-vs-all SVM classifiers are saved in a set of yml files with the common prefix "SvmClassifier".
+
+### 10.3 Test the 1-vs-all SVM classifiers.
+
+(1) To test one image,
+
+```bash
+./BowSvmClassifier test -p ./SvmClassifier -c o -i ./test.jpg -r ./result.yml -v ./vocabulary.yml
+```
+
+The option "-c" specifies the true class or the expected class of the test image. The evaluated class and the decision function values of all the 1-vs-all SVM classifiers are written to result.yml.
+
+(2) To test a set of images,
+
+```bash
+./BowSvmClassifier test -p ./SvmClassifier -d ./test-images -r ./results.yml -v ./vocabulary.yml
+```
+
+Note that the test images need to be stored in a tree similar to the one for building the vocabulary above, where the true class or the expected class of each image is given by its directory name.
