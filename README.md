@@ -150,3 +150,33 @@ The option "-c" specifies the true class or the expected class of the test image
 ```
 
 Note that the test images need to be stored in a tree similar to the one for building the vocabulary above, where the true class or the expected class of each image is given by its directory name.
+
+## 11. SimpleHistComparison
+
+This executable converts two BGR-colored images into HSV, compute their single-channel or multi-channel histograms, and then compare their histograms via various methods. Note that 
+
+* While BGR is Blue, Green, and Red, HSV is Hue, Saturation, and Value. 
+* Any combination of the three h, s, and v channels may be specified for computing and comparing the histograms. If not specified, the default value "hs" will be used. Also, if only one channel is specified, the two histograms will be drawn up and down, next to each other.
+* One of the following comparison methods may be specified: 
+    correl = Correlation (method = CV_COMP_CORREL)
+    chisqr = Chi-Square (method = CV_COMP_CHISQR)
+    chisqr_alt = Alternative Chi-Square (method = CV_COMP_CHISQR_ALT)
+    intersection = Intersection (method = CV_COMP_INTERSECT)
+    bhattacharyya or hellinger = Bhattacharyya distance (method = CV_COMP_BHATTACHARYYA or method = CV_COMP_HELLINGER)
+    kl_div = Kullback-Leibler divergence (method = CV_COMP_KL_DIV)
+  Note that if "all" is specified, the histograms will be compared via all the above methods. If not specified, the default value "correl" will be used.
+
+To get the help info,
+
+```bash
+$./SimpleHistComparison -h
+```
+
+Below are a couple of sample commands.
+
+```bash
+$./SimpleHistComparison ./image1.jpg ./image2.jpg
+$./SimpleHistComparison ./image1.jpg ./image2.jpg -d chisqr_alt -c h
+$./SimpleHistComparison ./image1.jpg ./image2.jpg -d all -c hs
+```
+
