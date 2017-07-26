@@ -1,16 +1,17 @@
 /*
- * SimpleHistComparison.cpp
+ * EmdHistComparison.cpp
  *
- *  Created on: Jul 21, 2017
+ *  Created on: Jul 24, 2017
  *      Author: renwei
  */
 
-// Modified based on Example 13-1: Histogram computation and display in the book "Learning OpenCV 3".
+// Modified based on Example 13-2: Creating signatures from histograms for EMD in the book "Learning OpenCV 3".
 
 #include <iostream>
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <chrono>
 
 #include <boost/program_options.hpp>
 
@@ -23,77 +24,47 @@ using namespace std;
 using namespace cv;
 namespace po = boost::program_options;
 
-void Str2HistComparisonMethod(
-    const string& strCompMethod,
-    vector<int>& compMethods,
-    vector<float>& perfectMatchVal)
+typedef std::chrono::high_resolution_clock Clock;
+
+void Str2DistMethod(
+    const string& strDistMethod,
+    vector<int>& distMethods)
 {
-    compMethods.clear();
+    distMethods.clear();
 
-    if ((strCompMethod == "correl") || (strCompMethod == "all"))
+    if ((strDistMethod == "l1") || (strDistMethod == "all"))
     {
-        compMethods.push_back(CV_COMP_CORREL);
-        perfectMatchVal.push_back(1.0);
+        distMethods.push_back(DIST_L1);
     }
 
-    if ((strCompMethod == "chisqr") || (strCompMethod == "all"))
+    if ((strDistMethod == "l2") || (strDistMethod == "all"))
     {
-        compMethods.push_back(CV_COMP_CHISQR);
-        perfectMatchVal.push_back(0.0);
+        distMethods.push_back(DIST_L2);
     }
 
-    if ((strCompMethod == "chisqr_alt") || (strCompMethod == "all"))
+    if ((strDistMethod == "c") || (strDistMethod == "all"))
     {
-        compMethods.push_back(CV_COMP_CHISQR_ALT);
-        perfectMatchVal.push_back(0.0);
-    }
-
-    if ((strCompMethod == "intersect") || (strCompMethod == "all"))
-    {
-        compMethods.push_back(CV_COMP_INTERSECT);
-        perfectMatchVal.push_back(1.0);
-    }
-
-    if ((strCompMethod == "bhattacharyya") || (strCompMethod == "hellinger") || (strCompMethod == "all"))
-    {
-        // CV_COMP_HELLINGER is the same as CV_COMP_BHATTACHARYYA
-        compMethods.push_back(CV_COMP_BHATTACHARYYA);
-        perfectMatchVal.push_back(0.0);
-    }
-
-    if ((strCompMethod == "kl_div") || (strCompMethod == "all"))
-    {
-        compMethods.push_back(CV_COMP_KL_DIV);
-        perfectMatchVal.push_back(0.0);
+        distMethods.push_back(DIST_C);
     }
 
     return;
 }
 
-string HistComparisonMethod2Str(const int histComparisonMethod)
+string DistMethod2Str(const int distMethod)
 {
-    switch (histComparisonMethod)
+    switch (distMethod)
     {
-    case CV_COMP_CORREL:
-        return "correl";
+    case DIST_L1:
+        return "Manhattan distance";
 
-    case CV_COMP_CHISQR:
-        return "chisqr";
+    case DIST_L2:
+        return "Euclidean distance";
 
-    case CV_COMP_CHISQR_ALT:
-        return "chisqr_alt";
-
-    case CV_COMP_INTERSECT:
-        return "intersect";
-
-    case CV_COMP_BHATTACHARYYA:
-        return "bhattacharyya";
-
-    case CV_COMP_KL_DIV:
-        return "kl_dlv";
+    case DIST_C:
+        return "Checkboard distance";
 
     default:
-        return "invalid";
+        return "Unsupported or invalid distance";
     }
 }
 
@@ -214,6 +185,47 @@ void DrawHistogram(
     }
 }
 
+void CreateSignatureFromHistogram(
+    const Mat& hist,
+    Mat& sig)
+{
+    if (hist.cols == 1)
+    {
+        // One-dimensional histogram
+        vector<Vec2f> sigv;
+        for (int rowIndex = 0; rowIndex < hist.rows; rowIndex++)
+        {
+            float binVal = hist.at<float>(rowIndex, 0);
+            if (binVal != 0)
+            {
+                sigv.push_back(Vec2f(binVal, static_cast<float>(rowIndex)));
+            }
+        }
+
+        sig = Mat(sigv).clone().reshape(1);
+    }
+    else
+    {
+        // Two-dimensional histogram
+        vector<Vec3f> sigv;
+        for (int rowIndex = 0; rowIndex < hist.rows; rowIndex++)
+        {
+            for (int colIndex = 0; colIndex < hist.cols; colIndex++)
+            {
+                float binVal = hist.at<float>(rowIndex, colIndex);
+                if (binVal != 0)
+                {
+                    sigv.push_back(Vec3f(binVal, static_cast<float>(rowIndex), static_cast<float>(colIndex)));
+                }
+            }
+        }
+
+        sig = Mat(sigv).clone().reshape(1);
+    }
+
+    return;
+}
+
 int main(int argc, char** argv)
 {
     po::options_description opt("Options");
@@ -221,8 +233,8 @@ int main(int argc, char** argv)
         ("image1", po::value<string>()->required(), "The first image")  // This is a positional option.
         ("image2", po::value<string>()->required(), "The second image") // This is also a positional option.
         ("help,h", "Display the help information")
-        ("distance-method,d", po::value<string>(), "The distance method used for comparison (correl | chisqr | chisqr_alt | intersect | bhattacharyya | hellinger | kl_div | all). If not specified, default chisqr_alt.")
-        ("hsv-channels,c", po::value<string>(), "The HSV channels used for generating the histogram (h | s | v). If not specified, default hs.");
+        ("distance-method,d", po::value<string>(), "The distance method used for EMD comparison (l1 | l2 | c | all). If not specified, default l2.")
+        ("hsv-channels,c", po::value<string>(), "One or two HSV channels used for generating the histogram (h | s | v | hs | hv | sv). If not specified, default hs.");
 
     po::positional_options_description posOpt;
     posOpt.add("image1", 1);
@@ -235,7 +247,7 @@ int main(int argc, char** argv)
 
         if (vm.count("help") > 0)
         {
-            cout << "Usage: ./SimpleHistComparison image1 image2 -d [distance-method] -c [HSV-channels]" << endl << endl;
+            cout << "Usage: ./EmdHistComparison image1 image2 -d [distance-method] -c [HSV-channels]" << endl << endl;
             cout << opt << endl;
             return 0;
         }
@@ -263,17 +275,16 @@ int main(int argc, char** argv)
     }
     else
     {
-        strDistMethod = "correl";
-        cout << "[INFO]: No distance method is specified and use the default distance method Correlation." << endl;
+        strDistMethod = "l2";
+        cout << "[INFO]: No distance method is specified and use the default L2 Euclidean distance." << endl;
     }
 
-    vector<int> histComparisonMethods;
-    vector<float> histCompPerfectMatchVals;
+    vector<int> distMethods;
     transform(strDistMethod.begin(), strDistMethod.end(), strDistMethod.begin(), ::tolower);
-    Str2HistComparisonMethod(strDistMethod, histComparisonMethods, histCompPerfectMatchVals);
-    if (histComparisonMethods.empty())
+    Str2DistMethod(strDistMethod, distMethods);
+    if (distMethods.empty())
     {
-        cerr << "[ERROR]: Invalid histogram comparison method " << strDistMethod << "." << endl << endl;
+        cerr << "[ERROR]: Unsupported or invalid EMD distance method " << strDistMethod << "." << endl << endl;
         return -1;
     }
 
@@ -295,6 +306,12 @@ int main(int argc, char** argv)
     if (hsvChannels.empty())
     {
         cerr << "[ERROR]: Invalid HSV channels " << strHsvChannels  << ", should contain h or s or v." << endl << endl;
+        return -1;
+    }
+    else if (hsvChannels.size() > 2)
+    {
+        cerr << "[ERROR]: The EMD comparison for more than two HSV channels (" << strHsvChannels
+            << ") is not supported." << endl << endl;
         return -1;
     }
 
@@ -322,7 +339,7 @@ int main(int argc, char** argv)
         namedWindow("The original image 1 and 2", WINDOW_AUTOSIZE);
         imshow("The original image 1 and 2", srcImgs);
     }
-    
+
     // Convert image 1 and 2 into HSV.
     Mat hsvImg1;
     Mat hsvImg2;
@@ -359,14 +376,22 @@ int main(int argc, char** argv)
         cout << "[INFO]: Can't draw the histograms for more than one HSV channel." << endl;
     }
 
-    // Compare the two normalized histograms.
-    for (size_t compMethodIndex = 0; compMethodIndex < histComparisonMethods.size(); ++compMethodIndex)
+    // Create the signatures from the histograms which will be used by EMD.
+    Mat sig1;
+    Mat sig2;
+    CreateSignatureFromHistogram(hist1, sig1);
+    CreateSignatureFromHistogram(hist2, sig2);
+
+    // Compare the two normalized histograms via EMD.
+    for (const int& distMethod : distMethods)
     {
-        double compareResult = compareHist(hist1, hist2, histComparisonMethods[compMethodIndex]);
-        cout << "[INFO]: The comparison result of the two histograms = " << compareResult << " with the method "
-            << HistComparisonMethod2Str(histComparisonMethods[compMethodIndex]) << endl;
-        cout << "[INFO]: The result for a perfect match of the method " << HistComparisonMethod2Str(histComparisonMethods[compMethodIndex])
-            << " is " << histCompPerfectMatchVals[compMethodIndex] << "." << endl;
+        auto tStart = Clock::now();
+        float emdResult = EMD(sig1, sig2, distMethod);
+        auto tEnd = Clock::now();
+
+        cout << "[INFO]: The EMD comparison result of the two histograms = " << emdResult << " with the "
+            << DistMethod2Str(distMethod) << " in "
+            << chrono::duration_cast<chrono::milliseconds>(tEnd - tStart).count() << " milliseconds." << endl;
     }
 
     waitKey();
@@ -376,10 +401,10 @@ int main(int argc, char** argv)
     {
         destroyWindow("The histograms of image 1 and 2");
     }
-    
+
     if (srcImg1.rows == srcImg2.rows)
     {
-        destroyWindow("The original image 1 and 2");
+            destroyWindow("The original image 1 and 2");
     }
 
     return 0;

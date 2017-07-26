@@ -176,7 +176,31 @@ Below are a couple of sample commands.
 
 ```bash
 $./SimpleHistComparison ./image1.jpg ./image2.jpg
-$./SimpleHistComparison ./image1.jpg ./image2.jpg -d chisqr_alt -c h
-$./SimpleHistComparison ./image1.jpg ./image2.jpg -d all -c hs
+$./SimpleHistComparison ./image1.jpg ./image2.jpg -c h -d chisqr_alt
+$./SimpleHistComparison ./image1.jpg ./image2.jpg -c hs -d all
 ```
 
+## 12. EmdHistComparison
+
+This executable converts two BGR-colored images into HSV, compute their single-channel or double-channel histograms, and then compare their histograms via the Earth Mover's Distance (EMD) method. Note that
+
+* Only one or two of the HSV channels may be specified for computing and comparing the histograms. If not specified, the default value "hs" will be used. Also, if only one channel is specified, the two histograms will be drawn up and down, next to each other.
+* The current EMD implementation in OpenCV supports the following three definitions of distance:
+    l1: Manhattan distance
+    l2: Euclidean distance
+    c: Checkboard distance
+  Note that if "all" is specified, the histograms will be compared with all the above distances.
+
+To get the help info,
+
+```bash
+$./EmdHistComparison -h
+```
+
+Below are a couple of sample commands.
+
+```bash
+$./EmdHistComparison ./image1.jpg ./image2.jpg
+$./EmdHistComparison ./image1.jpg ./image2.jpg -c h -d l1
+$./EmdHistComparison ./image1.jpg ./image2.jpg -c hs -d all 
+```
