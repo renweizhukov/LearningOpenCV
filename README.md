@@ -153,7 +153,7 @@ Note that the test images need to be stored in a tree similar to the one for bui
 
 ## 11. SimpleHsvHistComparison
 
-This executable converts two BGR-colored images into HSV, compute their single-channel or multi-channel histograms, and then compare their histograms via various methods. Note that 
+This executable converts two BGR-colored images into HSV, computes their single-channel or multi-channel histograms, and then compares their histograms via various methods. Note that 
 
 * While BGR is Blue, Green, and Red, HSV is Hue, Saturation, and Value. 
 * Any combination of the three h, s, and v channels may be specified for computing and comparing the histograms. If not specified, the default value "hs" will be used. Also, if only one channel is specified, the two histograms will be drawn up and down, next to each other.
@@ -182,7 +182,7 @@ $./SimpleHsvHistComparison ./image1.jpg ./image2.jpg -c hs -m all
 
 ## 12. EmdHsvHistComparison
 
-This executable converts two BGR-colored images into HSV, compute their single-channel or double-channel histograms, and then compare their histograms via the Earth Mover's Distance (EMD) method. Note that
+This executable converts two BGR-colored images into HSV, computes their single-channel or double-channel histograms, and then compares their histograms via the Earth Mover's Distance (EMD) method. Note that
 
 * Only one or two of the HSV channels may be specified for computing and comparing the histograms. If not specified, the default value "hs" will be used. Also, if only one channel is specified, the two histograms will be drawn up and down, next to each other.
 * The current EMD implementation in OpenCV supports the following three definitions of distance:
@@ -204,3 +204,33 @@ $./EmdHsvHistComparison ./image1.jpg ./image2.jpg
 $./EmdHsvHistComparison ./image1.jpg ./image2.jpg -c h -m l1
 $./EmdHsvHistComparison ./image1.jpg ./image2.jpg -c hs -m all 
 ```
+
+## 13. BgrHistComparison
+
+This executable computes the single-channel (Blue, Green, or Red) histograms of two BGR-colored images and then compares their histograms via various methods. Note that
+
+* Any combination of the three b, g, and r channels may be specified for computing and comparing the histograms. If not specified, default bgr. 
+* One histogram is generated for each specified channel.
+* One of the following comparison methods may be specified: 
+    correl = Correlation (method = CV_COMP_CORREL)
+    chisqr = Chi-Square (method = CV_COMP_CHISQR)
+    chisqr_alt = Alternative Chi-Square (method = CV_COMP_CHISQR_ALT)
+    intersection = Intersection (method = CV_COMP_INTERSECT)
+    bhattacharyya or hellinger = Bhattacharyya distance (method = CV_COMP_BHATTACHARYYA or method = CV_COMP_HELLINGER)
+    kl_div = Kullback-Leibler divergence (method = CV_COMP_KL_DIV)
+    emd = Earth Mover's Distance
+  Note that if "all" is specified, the histograms will be compared via all the above methods. If not specified, the default value "correl" will be used.
+
+To get the help info,
+
+```bash
+$./BgrHistComparison -h
+```
+
+Below are a couple of sample commands.
+
+```bash
+$./BgrHistComparison ./image1.jpg ./image2.jpg
+$./BgrHistComparison ./image1.jpg ./image2.jpg -c b -m emd -d l2
+$./BgrHistComparison ./image1.jpg ./image2.jpg -c bgr -m all
+``` 

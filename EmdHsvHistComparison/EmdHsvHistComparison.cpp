@@ -272,6 +272,7 @@ int main(int argc, char** argv)
     if (vm.count("distance") > 0)
     {
         strDistance = vm["distance"].as<string>();
+        transform(strDistance.begin(), strDistance.end(), strDistance.begin(), ::tolower);
     }
     else
     {
@@ -280,7 +281,6 @@ int main(int argc, char** argv)
     }
 
     vector<int> distances;
-    transform(strDistance.begin(), strDistance.end(), strDistance.begin(), ::tolower);
     Str2DistMethod(strDistance, distances);
     if (distances.empty())
     {
@@ -291,6 +291,7 @@ int main(int argc, char** argv)
     if (vm.count("hsv-channels") > 0)
     {
         strHsvChannels = vm["hsv-channels"].as<string>();
+        transform(strHsvChannels.begin(), strHsvChannels.end(), strHsvChannels.begin(), ::tolower);
     }
     else
     {
@@ -301,7 +302,6 @@ int main(int argc, char** argv)
     vector<int> hsvChannels;
     vector<int> histSize;
     vector<float> ranges;
-    transform(strHsvChannels.begin(), strHsvChannels.end(), strHsvChannels.begin(), ::tolower);
     Str2HsvChannels(strHsvChannels, hsvChannels, histSize, ranges);
     if (hsvChannels.empty())
     {

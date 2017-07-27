@@ -260,6 +260,7 @@ int main(int argc, char** argv)
     if (vm.count("comparison-method") > 0)
     {
         strCompMethod = vm["comparison-method"].as<string>();
+        transform(strCompMethod.begin(), strCompMethod.end(), strCompMethod.begin(), ::tolower);
     }
     else
     {
@@ -269,7 +270,6 @@ int main(int argc, char** argv)
 
     vector<int> histComparisonMethods;
     vector<float> histCompPerfectMatchVals;
-    transform(strCompMethod.begin(), strCompMethod.end(), strCompMethod.begin(), ::tolower);
     Str2HistComparisonMethod(strCompMethod, histComparisonMethods, histCompPerfectMatchVals);
     if (histComparisonMethods.empty())
     {
@@ -280,6 +280,7 @@ int main(int argc, char** argv)
     if (vm.count("hsv-channels") > 0)
     {
         strHsvChannels = vm["hsv-channels"].as<string>();
+        transform(strHsvChannels.begin(), strHsvChannels.end(), strHsvChannels.begin(), ::tolower);
     }
     else
     {
@@ -290,7 +291,6 @@ int main(int argc, char** argv)
     vector<int> hsvChannels;
     vector<int> histSize;
     vector<float> ranges;
-    transform(strHsvChannels.begin(), strHsvChannels.end(), strHsvChannels.begin(), ::tolower);
     Str2HsvChannels(strHsvChannels, hsvChannels, histSize, ranges);
     if (hsvChannels.empty())
     {
