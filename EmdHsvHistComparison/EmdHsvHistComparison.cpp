@@ -1,5 +1,5 @@
 /*
- * EmdHistComparison.cpp
+ * EmdHsvHistComparison.cpp
  *
  *  Created on: Jul 24, 2017
  *      Author: renwei
@@ -27,24 +27,24 @@ namespace po = boost::program_options;
 typedef std::chrono::high_resolution_clock Clock;
 
 void Str2DistMethod(
-    const string& strDistMethod,
-    vector<int>& distMethods)
+    const string& strDistance,
+    vector<int>& distances)
 {
-    distMethods.clear();
+    distances.clear();
 
-    if ((strDistMethod == "l1") || (strDistMethod == "all"))
+    if ((strDistance == "l1") || (strDistance == "all"))
     {
-        distMethods.push_back(DIST_L1);
+        distances.push_back(DIST_L1);
     }
 
-    if ((strDistMethod == "l2") || (strDistMethod == "all"))
+    if ((strDistance == "l2") || (strDistance == "all"))
     {
-        distMethods.push_back(DIST_L2);
+        distances.push_back(DIST_L2);
     }
 
-    if ((strDistMethod == "c") || (strDistMethod == "all"))
+    if ((strDistance == "c") || (strDistance == "all"))
     {
-        distMethods.push_back(DIST_C);
+        distances.push_back(DIST_C);
     }
 
     return;
@@ -233,7 +233,7 @@ int main(int argc, char** argv)
         ("image1", po::value<string>()->required(), "The first image")  // This is a positional option.
         ("image2", po::value<string>()->required(), "The second image") // This is also a positional option.
         ("help,h", "Display the help information")
-        ("distance-method,d", po::value<string>(), "The distance method used for EMD comparison (l1 | l2 | c | all). If not specified, default l2.")
+        ("distance,d", po::value<string>(), "The type of the distance used for EMD comparison (l1 | l2 | c | all). If not specified, default l1.")
         ("hsv-channels,c", po::value<string>(), "One or two HSV channels used for generating the histogram (h | s | v | hs | hv | sv). If not specified, default hs.");
 
     po::positional_options_description posOpt;
@@ -247,7 +247,7 @@ int main(int argc, char** argv)
 
         if (vm.count("help") > 0)
         {
-            cout << "Usage: ./EmdHistComparison image1 image2 -d [distance-method] -c [HSV-channels]" << endl << endl;
+            cout << "Usage: ./EmdHsvHistComparison image1 image2 -d [distance-method] -c [HSV-channels]" << endl << endl;
             cout << opt << endl;
             return 0;
         }
@@ -263,28 +263,28 @@ int main(int argc, char** argv)
 
     string img1;
     string img2;
-    string strDistMethod;
+    string strDistance;
     string strHsvChannels;
 
     img1 = vm["image1"].as<string>();
     img2 = vm["image2"].as<string>();
 
-    if (vm.count("distance-method") > 0)
+    if (vm.count("distance") > 0)
     {
-        strDistMethod = vm["distance-method"].as<string>();
+        strDistance = vm["distance"].as<string>();
     }
     else
     {
-        strDistMethod = "l2";
-        cout << "[INFO]: No distance method is specified and use the default L2 Euclidean distance." << endl;
+        strDistance = "l1";
+        cout << "[INFO]: No distance type is specified and use the default L1 Manhattan distance." << endl;
     }
 
-    vector<int> distMethods;
-    transform(strDistMethod.begin(), strDistMethod.end(), strDistMethod.begin(), ::tolower);
-    Str2DistMethod(strDistMethod, distMethods);
-    if (distMethods.empty())
+    vector<int> distances;
+    transform(strDistance.begin(), strDistance.end(), strDistance.begin(), ::tolower);
+    Str2DistMethod(strDistance, distances);
+    if (distances.empty())
     {
-        cerr << "[ERROR]: Unsupported or invalid EMD distance method " << strDistMethod << "." << endl << endl;
+        cerr << "[ERROR]: Unsupported or invalid EMD distance method " << strDistance << "." << endl << endl;
         return -1;
     }
 
@@ -383,7 +383,7 @@ int main(int argc, char** argv)
     CreateSignatureFromHistogram(hist2, sig2);
 
     // Compare the two normalized histograms via EMD.
-    for (const int& distMethod : distMethods)
+    for (const int& distMethod : distances)
     {
         auto tStart = Clock::now();
         float emdResult = EMD(sig1, sig2, distMethod);
@@ -404,7 +404,7 @@ int main(int argc, char** argv)
 
     if (srcImg1.rows == srcImg2.rows)
     {
-            destroyWindow("The original image 1 and 2");
+        destroyWindow("The original image 1 and 2");
     }
 
     return 0;

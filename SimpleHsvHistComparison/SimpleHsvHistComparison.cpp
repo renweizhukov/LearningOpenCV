@@ -1,5 +1,5 @@
 /*
- * SimpleHistComparison.cpp
+ * SimpleHsvHistComparison.cpp
  *
  *  Created on: Jul 21, 2017
  *      Author: renwei
@@ -221,7 +221,7 @@ int main(int argc, char** argv)
         ("image1", po::value<string>()->required(), "The first image")  // This is a positional option.
         ("image2", po::value<string>()->required(), "The second image") // This is also a positional option.
         ("help,h", "Display the help information")
-        ("distance-method,d", po::value<string>(), "The distance method used for comparison (correl | chisqr | chisqr_alt | intersect | bhattacharyya | hellinger | kl_div | all). If not specified, default chisqr_alt.")
+        ("comparison-method,m", po::value<string>(), "The comparison method (correl | chisqr | chisqr_alt | intersect | bhattacharyya | hellinger | kl_div | all). If not specified, default correl.")
         ("hsv-channels,c", po::value<string>(), "The HSV channels used for generating the histogram (h | s | v). If not specified, default hs.");
 
     po::positional_options_description posOpt;
@@ -235,7 +235,7 @@ int main(int argc, char** argv)
 
         if (vm.count("help") > 0)
         {
-            cout << "Usage: ./SimpleHistComparison image1 image2 -d [distance-method] -c [HSV-channels]" << endl << endl;
+            cout << "Usage: ./SimpleHsvHistComparison image1 image2 -m [comparison-method] -c [HSV-channels]" << endl << endl;
             cout << opt << endl;
             return 0;
         }
@@ -251,29 +251,29 @@ int main(int argc, char** argv)
 
     string img1;
     string img2;
-    string strDistMethod;
+    string strCompMethod;
     string strHsvChannels;
 
     img1 = vm["image1"].as<string>();
     img2 = vm["image2"].as<string>();
 
-    if (vm.count("distance-method") > 0)
+    if (vm.count("comparison-method") > 0)
     {
-        strDistMethod = vm["distance-method"].as<string>();
+        strCompMethod = vm["comparison-method"].as<string>();
     }
     else
     {
-        strDistMethod = "correl";
+        strCompMethod = "correl";
         cout << "[INFO]: No distance method is specified and use the default distance method Correlation." << endl;
     }
 
     vector<int> histComparisonMethods;
     vector<float> histCompPerfectMatchVals;
-    transform(strDistMethod.begin(), strDistMethod.end(), strDistMethod.begin(), ::tolower);
-    Str2HistComparisonMethod(strDistMethod, histComparisonMethods, histCompPerfectMatchVals);
+    transform(strCompMethod.begin(), strCompMethod.end(), strCompMethod.begin(), ::tolower);
+    Str2HistComparisonMethod(strCompMethod, histComparisonMethods, histCompPerfectMatchVals);
     if (histComparisonMethods.empty())
     {
-        cerr << "[ERROR]: Invalid histogram comparison method " << strDistMethod << "." << endl << endl;
+        cerr << "[ERROR]: Invalid histogram comparison method " << strCompMethod << "." << endl << endl;
         return -1;
     }
 

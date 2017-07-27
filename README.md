@@ -176,8 +176,8 @@ Below are a couple of sample commands.
 
 ```bash
 $./SimpleHsvHistComparison ./image1.jpg ./image2.jpg
-$./SimpleHsvHistComparison ./image1.jpg ./image2.jpg -c h -d chisqr_alt
-$./SimpleHsvHistComparison ./image1.jpg ./image2.jpg -c hs -d all
+$./SimpleHsvHistComparison ./image1.jpg ./image2.jpg -c h -m chisqr_alt
+$./SimpleHsvHistComparison ./image1.jpg ./image2.jpg -c hs -m all
 ```
 
 ## 12. EmdHsvHistComparison
@@ -189,7 +189,7 @@ This executable converts two BGR-colored images into HSV, compute their single-c
     l1: Manhattan distance
     l2: Euclidean distance
     c: Checkboard distance
-  Note that if "all" is specified, the histograms will be compared with all the above distances.
+  Note that if "all" is specified, the histograms will be compared with all the above distances. If not specified, the default value "l1" will be used.
 
 To get the help info,
 
@@ -201,6 +201,6 @@ Below are a couple of sample commands.
 
 ```bash
 $./EmdHsvHistComparison ./image1.jpg ./image2.jpg
-$./EmdHsvHistComparison ./image1.jpg ./image2.jpg -c h -d l1
-$./EmdHsvHistComparison ./image1.jpg ./image2.jpg -c hs -d all 
+$./EmdHsvHistComparison ./image1.jpg ./image2.jpg -c h -m l1
+$./EmdHsvHistComparison ./image1.jpg ./image2.jpg -c hs -m all 
 ```
