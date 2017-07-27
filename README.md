@@ -151,7 +151,7 @@ The option "-c" specifies the true class or the expected class of the test image
 
 Note that the test images need to be stored in a tree similar to the one for building the vocabulary above, where the true class or the expected class of each image is given by its directory name.
 
-## 11. SimpleHistComparison
+## 11. SimpleHsvHistComparison
 
 This executable converts two BGR-colored images into HSV, compute their single-channel or multi-channel histograms, and then compare their histograms via various methods. Note that 
 
@@ -169,18 +169,18 @@ This executable converts two BGR-colored images into HSV, compute their single-c
 To get the help info,
 
 ```bash
-$./SimpleHistComparison -h
+$./SimpleHsvHistComparison -h
 ```
 
 Below are a couple of sample commands.
 
 ```bash
-$./SimpleHistComparison ./image1.jpg ./image2.jpg
-$./SimpleHistComparison ./image1.jpg ./image2.jpg -c h -d chisqr_alt
-$./SimpleHistComparison ./image1.jpg ./image2.jpg -c hs -d all
+$./SimpleHsvHistComparison ./image1.jpg ./image2.jpg
+$./SimpleHsvHistComparison ./image1.jpg ./image2.jpg -c h -d chisqr_alt
+$./SimpleHsvHistComparison ./image1.jpg ./image2.jpg -c hs -d all
 ```
 
-## 12. EmdHistComparison
+## 12. EmdHsvHistComparison
 
 This executable converts two BGR-colored images into HSV, compute their single-channel or double-channel histograms, and then compare their histograms via the Earth Mover's Distance (EMD) method. Note that
 
@@ -194,13 +194,13 @@ This executable converts two BGR-colored images into HSV, compute their single-c
 To get the help info,
 
 ```bash
-$./EmdHistComparison -h
+$./EmdHsvHistComparison -h
 ```
 
 Below are a couple of sample commands.
 
 ```bash
-$./EmdHistComparison ./image1.jpg ./image2.jpg
-$./EmdHistComparison ./image1.jpg ./image2.jpg -c h -d l1
-$./EmdHistComparison ./image1.jpg ./image2.jpg -c hs -d all 
+$./EmdHsvHistComparison ./image1.jpg ./image2.jpg
+$./EmdHsvHistComparison ./image1.jpg ./image2.jpg -c h -d l1
+$./EmdHsvHistComparison ./image1.jpg ./image2.jpg -c hs -d all 
 ```
