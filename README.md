@@ -158,13 +158,15 @@ This executable converts two BGR-colored images into HSV, computes their single-
 * While BGR is Blue, Green, and Red, HSV is Hue, Saturation, and Value. 
 * Any combination of the three h, s, and v channels may be specified for computing and comparing the histograms. If not specified, the default value "hs" will be used. Also, if only one channel is specified, the two histograms will be drawn up and down, next to each other.
 * One of the following comparison methods may be specified: 
-    correl = Correlation (method = CV_COMP_CORREL)
-    chisqr = Chi-Square (method = CV_COMP_CHISQR)
-    chisqr_alt = Alternative Chi-Square (method = CV_COMP_CHISQR_ALT)
-    intersection = Intersection (method = CV_COMP_INTERSECT)
-    bhattacharyya or hellinger = Bhattacharyya distance (method = CV_COMP_BHATTACHARYYA or method = CV_COMP_HELLINGER)
-    kl_div = Kullback-Leibler divergence (method = CV_COMP_KL_DIV)
-  Note that if "all" is specified, the histograms will be compared via all the above methods. If not specified, the default value "correl" will be used.
+
+    correl = Correlation (method = CV_COMP_CORREL), 
+    chisqr = Chi-Square (method = CV_COMP_CHISQR), 
+    chisqr_alt = Alternative Chi-Square (method = CV_COMP_CHISQR_ALT), 
+    intersection = Intersection (method = CV_COMP_INTERSECT), 
+    bhattacharyya or hellinger = Bhattacharyya distance (method = CV_COMP_BHATTACHARYYA or method = CV_COMP_HELLINGER), 
+    kl_div = Kullback-Leibler divergence (method = CV_COMP_KL_DIV),
+    
+  If "all" is specified, the histograms will be compared via all the above methods. If not specified, the default value "correl" will be used.
 
 To get the help info,
 
@@ -185,11 +187,13 @@ $./SimpleHsvHistComparison ./image1.jpg ./image2.jpg -c hs -m all
 This executable converts two BGR-colored images into HSV, computes their single-channel or double-channel histograms, and then compares their histograms via the Earth Mover's Distance (EMD) method. Note that
 
 * Only one or two of the HSV channels may be specified for computing and comparing the histograms. If not specified, the default value "hs" will be used. Also, if only one channel is specified, the two histograms will be drawn up and down, next to each other.
-* The current EMD implementation in OpenCV supports the following three definitions of distance:
-    l1: Manhattan distance
-    l2: Euclidean distance
-    c: Checkboard distance
-  Note that if "all" is specified, the histograms will be compared with all the above distances. If not specified, the default value "l1" will be used.
+* The current EMD implementation in OpenCV supports the following three definitions of distance: 
+
+    l1: Manhattan distance, 
+    l2: Euclidean distance, 
+    c: Checkboard distance, 
+    
+  If "all" is specified, the histograms will be compared with all the above distances. If not specified, the default value "l1" will be used.
 
 To get the help info,
 
@@ -212,14 +216,16 @@ This executable computes the single-channel (Blue, Green, or Red) histograms of 
 * Any combination of the three b, g, and r channels may be specified for computing and comparing the histograms. If not specified, default bgr. 
 * One histogram is generated for each specified channel.
 * One of the following comparison methods may be specified: 
-    correl = Correlation (method = CV_COMP_CORREL)
-    chisqr = Chi-Square (method = CV_COMP_CHISQR)
-    chisqr_alt = Alternative Chi-Square (method = CV_COMP_CHISQR_ALT)
-    intersection = Intersection (method = CV_COMP_INTERSECT)
-    bhattacharyya or hellinger = Bhattacharyya distance (method = CV_COMP_BHATTACHARYYA or method = CV_COMP_HELLINGER)
-    kl_div = Kullback-Leibler divergence (method = CV_COMP_KL_DIV)
-    emd = Earth Mover's Distance
-  Note that if "all" is specified, the histograms will be compared via all the above methods. If not specified, the default value "correl" will be used.
+
+    correl = Correlation (method = CV_COMP_CORREL), 
+    chisqr = Chi-Square (method = CV_COMP_CHISQR), 
+    chisqr_alt = Alternative Chi-Square (method = CV_COMP_CHISQR_ALT), 
+    intersection = Intersection (method = CV_COMP_INTERSECT), 
+    bhattacharyya or hellinger = Bhattacharyya distance (method = CV_COMP_BHATTACHARYYA or method = CV_COMP_HELLINGER), 
+    kl_div = Kullback-Leibler divergence (method = CV_COMP_KL_DIV), 
+    emd = Earth Mover's Distance 
+    
+  If "all" is specified, the histograms will be compared via all the above methods. If not specified, the default value "correl" will be used.
 
 To get the help info,
 
@@ -233,4 +239,34 @@ Below are a couple of sample commands.
 $./BgrHistComparison ./image1.jpg ./image2.jpg
 $./BgrHistComparison ./image1.jpg ./image2.jpg -c b -m emd -d l2
 $./BgrHistComparison ./image1.jpg ./image2.jpg -c bgr -m all
-``` 
+```
+
+## 14. SimpleTemplateMatching
+
+This executable matches a template image patch against an input image by "sliding" the patch over the input image using one of cv::matchTemplate()'s available matching method. The best match for the template image will be marked by a black rectangle in the input image. Note that 
+
+* Although both images are always loaded as BGR images, the template matching can be done with four different channel type: bgr, grayscale, hsv, and hs.
+* The cv::matchTemplate()'s available matching methods are as below: 
+
+    Square Difference (method = cv::TM_SQDIFF) 
+    Normalized Square Difference (method = cv::TM_SQDIFF_NORMED) 
+    Cross Correlation (method = cv::TM_CCORR) 
+    Normalized Cross Correlation (method = cv::TM_CCORR_NORMED) 
+    Correlation Coefficient (method = cv::TM_CCOEFF) 
+    Normalized Correlation Coefficient (method = cv::TM_CCOEFF_NORMED) 
+    
+  The matching method can be changed by moving the track bar at the top of the input image window.
+
+To get the help info,
+
+```bash
+$./SimpleTemplateMatching -h
+```
+
+Below are a couple of sample commands.
+
+```bash
+$./SimpleTemplateMatching ./inputImg.jpg ./templateImg.jpg
+$./SimpleTemplateMatching ./inputImg.jpg ./templateImg.jpg -c grayscale
+$./SimpleTemplateMatching ./inputImg.jpg ./templateImg.jpg -c hs
+```
