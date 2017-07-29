@@ -11,7 +11,6 @@
 #include <iostream>
 #include <string>
 #include <algorithm>
-#include <chrono>
 
 #include <boost/program_options.hpp>
 
@@ -23,8 +22,6 @@
 using namespace std;
 using namespace cv;
 namespace po = boost::program_options;
-
-typedef std::chrono::high_resolution_clock Clock;
 
 enum class TemplateMatchingColorChannels
 {
@@ -297,7 +294,18 @@ int main(int argc, char** argv)
 
     // Load the source image and the template image.
     originalSrcImg = imread(srcImgFile, IMREAD_COLOR);
+    if (originalSrcImg.empty())
+    {
+        cerr << "[ERROR]: Cannot load the source image " << srcImgFile << "." << endl << endl;
+        return -1;
+    }
+    
     originalTemplImg = imread(templImgFile, IMREAD_COLOR);
+    if (originalTemplImg.empty())
+    {
+        cerr << "[ERROR]: Cannot load the template image " << templImgFile << "." << endl << endl;
+        return -1;
+    }
 
     cout << "[DEBUG]: Original source image data type = " << CvType2Str(originalSrcImg.type()) << "." << endl;
     cout << "[DEBUG]: Original template image data type = " << CvType2Str(originalTemplImg.type()) << "." << endl;

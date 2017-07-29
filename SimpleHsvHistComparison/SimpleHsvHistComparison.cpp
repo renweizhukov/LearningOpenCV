@@ -24,10 +24,12 @@ using namespace cv;
 namespace po = boost::program_options;
 
 void Str2HistComparisonMethod(
-    const string& strCompMethod,
+    string& strCompMethod,
     vector<int>& compMethods,
     vector<float>& perfectMatchVal)
 {
+    transform(strCompMethod.begin(), strCompMethod.end(), strCompMethod.begin(), ::tolower);
+
     compMethods.clear();
 
     if ((strCompMethod == "correl") || (strCompMethod == "all"))
@@ -98,16 +100,18 @@ string HistComparisonMethod2Str(const int histComparisonMethod)
 }
 
 void Str2HsvChannels(
-    const string& hsvChannelStr,
+    string& strHsvChannels,
     vector<int>& hsvChannels,
     vector<int>& histSize,
     vector<float>& ranges)
 {
+    transform(strHsvChannels.begin(), strHsvChannels.end(), strHsvChannels.begin(), ::tolower);
+
     hsvChannels.clear();
     histSize.clear();
     ranges.clear();
 
-    if (hsvChannelStr.find('h') != string::npos)
+    if (strHsvChannels.find('h') != string::npos)
     {
         hsvChannels.push_back(0);   // Channel 0 is hue.
         histSize.push_back(30);
@@ -115,7 +119,7 @@ void Str2HsvChannels(
         ranges.push_back(180);      // Note that the range is left inclusive and right exclusive.
     }
 
-    if (hsvChannelStr.find('s') != string::npos)
+    if (strHsvChannels.find('s') != string::npos)
     {
         hsvChannels.push_back(1);   // Channel 1 is saturation.
         histSize.push_back(32);
@@ -123,7 +127,7 @@ void Str2HsvChannels(
         ranges.push_back(256);      // Note that the range is left inclusive and right exclusive.
     }
 
-    if (hsvChannelStr.find('v') != string::npos)
+    if (strHsvChannels.find('v') != string::npos)
     {
         hsvChannels.push_back(2);   // Channel 2 is value.
         histSize.push_back(32);
@@ -260,7 +264,6 @@ int main(int argc, char** argv)
     if (vm.count("comparison-method") > 0)
     {
         strCompMethod = vm["comparison-method"].as<string>();
-        transform(strCompMethod.begin(), strCompMethod.end(), strCompMethod.begin(), ::tolower);
     }
     else
     {
@@ -280,7 +283,6 @@ int main(int argc, char** argv)
     if (vm.count("hsv-channels") > 0)
     {
         strHsvChannels = vm["hsv-channels"].as<string>();
-        transform(strHsvChannels.begin(), strHsvChannels.end(), strHsvChannels.begin(), ::tolower);
     }
     else
     {

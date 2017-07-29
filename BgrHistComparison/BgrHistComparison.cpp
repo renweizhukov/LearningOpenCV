@@ -25,26 +25,28 @@ namespace po = boost::program_options;
 #define CV_COMP_EMD (CV_COMP_KL_DIV + 1)
 
 void Str2BgrChannels(
-    const string& StrBgrChannel,
+    string& strBgrChannels,
     vector<int>& bgrChannels,
     vector<int>& histSize,
     vector<float>& ranges)
 {
+    transform(strBgrChannels.begin(), strBgrChannels.end(), strBgrChannels.begin(), ::tolower);
+
     bgrChannels.clear();
     histSize.clear();
     ranges.clear();
 
-    if (StrBgrChannel.find('b') != string::npos)
+    if (strBgrChannels.find('b') != string::npos)
     {
         bgrChannels.push_back(0);   // Channel 0 is blue.
     }
 
-    if (StrBgrChannel.find('g') != string::npos)
+    if (strBgrChannels.find('g') != string::npos)
     {
         bgrChannels.push_back(1);   // Channel 1 is green.
     }
 
-    if (StrBgrChannel.find('r') != string::npos)
+    if (strBgrChannels.find('r') != string::npos)
     {
         bgrChannels.push_back(2);   // Channel 2 is red.
     }
@@ -74,10 +76,12 @@ string BgrChannel2Str(const int& channel)
 }
 
 void Str2HistComparisonMethod(
-    const string& strCompMethod,
+    string& strCompMethod,
     vector<int>& compMethods,
     vector<float>& perfectMatchVal)
 {
+    transform(strCompMethod.begin(), strCompMethod.end(), strCompMethod.begin(), ::tolower);
+
     compMethods.clear();
 
     if ((strCompMethod == "correl") || (strCompMethod == "all"))
@@ -157,9 +161,11 @@ string HistComparisonMethod2Str(const int histComparisonMethod)
 }
 
 void Str2DistMethod(
-    const string& strDistance,
+    string& strDistance,
     vector<int>& distances)
 {
+    transform(strDistance.begin(), strDistance.end(), strDistance.begin(), ::tolower);
+
     distances.clear();
 
     if ((strDistance == "l1") || (strDistance == "all"))
@@ -379,7 +385,6 @@ int main(int argc, char** argv)
     vector<int> bgrChannels;
     vector<int> histSize;
     vector<float> ranges;
-    transform(strBgrChannels.begin(), strBgrChannels.end(), strBgrChannels.begin(), ::tolower);
     Str2BgrChannels(strBgrChannels, bgrChannels, histSize, ranges);
     if (bgrChannels.empty())
     {
@@ -399,7 +404,6 @@ int main(int argc, char** argv)
 
     vector<int> histComparisonMethods;
     vector<float> histCompPerfectMatchVals;
-    transform(strCompMethod.begin(), strCompMethod.end(), strCompMethod.begin(), ::tolower);
     Str2HistComparisonMethod(strCompMethod, histComparisonMethods, histCompPerfectMatchVals);
     if (histComparisonMethods.empty())
     {
@@ -413,7 +417,6 @@ int main(int argc, char** argv)
         if (vm.count("distance") > 0)
         {
             strDistance = vm["distance"].as<string>();
-            transform(strDistance.begin(), strDistance.end(), strDistance.begin(), ::tolower);
         }
         else
         {
@@ -518,18 +521,6 @@ int main(int argc, char** argv)
 
         cout << "============================================================================================" << endl;
     }
-
-    /*
-    // Compare the two normalized histograms.
-    for (size_t compMethodIndex = 0; compMethodIndex < histComparisonMethods.size(); ++compMethodIndex)
-    {
-        double compareResult = compareHist(hist1, hist2, histComparisonMethods[compMethodIndex]);
-        cout << "[INFO]: The comparison result of the two histograms = " << compareResult << " with the method "
-            << HistComparisonMethod2Str(histComparisonMethods[compMethodIndex]) << endl;
-        cout << "[INFO]: The result for a perfect match of the method " << HistComparisonMethod2Str(histComparisonMethods[compMethodIndex])
-            << " is " << histCompPerfectMatchVals[compMethodIndex] << "." << endl;
-    }
-    */
 
     waitKey();
 

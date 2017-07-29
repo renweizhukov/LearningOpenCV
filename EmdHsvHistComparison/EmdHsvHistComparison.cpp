@@ -27,9 +27,11 @@ namespace po = boost::program_options;
 typedef std::chrono::high_resolution_clock Clock;
 
 void Str2DistMethod(
-    const string& strDistance,
+    string& strDistance,
     vector<int>& distances)
 {
+    transform(strDistance.begin(), strDistance.end(), strDistance.begin(), ::tolower);
+
     distances.clear();
 
     if ((strDistance == "l1") || (strDistance == "all"))
@@ -69,11 +71,13 @@ string DistMethod2Str(const int distMethod)
 }
 
 void Str2HsvChannels(
-    const string& hsvChannelStr,
+    string& hsvChannelStr,
     vector<int>& hsvChannels,
     vector<int>& histSize,
     vector<float>& ranges)
 {
+    transform(strHsvChannels.begin(), strHsvChannels.end(), strHsvChannels.begin(), ::tolower);
+
     hsvChannels.clear();
     histSize.clear();
     ranges.clear();
@@ -272,7 +276,6 @@ int main(int argc, char** argv)
     if (vm.count("distance") > 0)
     {
         strDistance = vm["distance"].as<string>();
-        transform(strDistance.begin(), strDistance.end(), strDistance.begin(), ::tolower);
     }
     else
     {
@@ -291,7 +294,6 @@ int main(int argc, char** argv)
     if (vm.count("hsv-channels") > 0)
     {
         strHsvChannels = vm["hsv-channels"].as<string>();
-        transform(strHsvChannels.begin(), strHsvChannels.end(), strHsvChannels.begin(), ::tolower);
     }
     else
     {

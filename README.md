@@ -227,6 +227,14 @@ This executable computes the single-channel (Blue, Green, or Red) histograms of 
     
   If "all" is specified, the histograms will be compared via all the above methods. If not specified, the default value "correl" will be used.
 
+* The current EMD implementation in OpenCV supports the following three definitions of distance: 
+
+    l1: Manhattan distance, 
+    l2: Euclidean distance, 
+    c: Checkboard distance, 
+    
+  If "all" is specified, the histograms will be compared with all the above distances. If not specified, the default value "l1" will be used.
+
 To get the help info,
 
 ```bash
@@ -269,4 +277,43 @@ Below are a couple of sample commands.
 $./SimpleTemplateMatching ./inputImg.jpg ./templateImg.jpg
 $./SimpleTemplateMatching ./inputImg.jpg ./templateImg.jpg -c grayscale
 $./SimpleTemplateMatching ./inputImg.jpg ./templateImg.jpg -c hs
+```
+
+## 15. TemplateHsHistComparison
+
+This executable first matches a template image patch against a source image by "sliding" the patch over the source image using the cv::matchTemplate()'s Normalized Correlation Coefficient matching method, and then computes and compares the histograms of the template image patch and the best match. Note that 
+
+* To minimize the effects of brightness, we convert the BGR images into HSV and only use the hue and saturation channels for template matching and histograms.
+* One of the following comparison methods may be specified: 
+
+    correl = Correlation (method = CV_COMP_CORREL), 
+    chisqr = Chi-Square (method = CV_COMP_CHISQR), 
+    chisqr_alt = Alternative Chi-Square (method = CV_COMP_CHISQR_ALT), 
+    intersection = Intersection (method = CV_COMP_INTERSECT), 
+    bhattacharyya or hellinger = Bhattacharyya distance (method = CV_COMP_BHATTACHARYYA or method = CV_COMP_HELLINGER), 
+    kl_div = Kullback-Leibler divergence (method = CV_COMP_KL_DIV), 
+    emd = Earth Mover's Distance 
+    
+  If "all" is specified, the histograms will be compared via all the above methods. If not specified, the default value "correl" will be used.
+
+* The current EMD implementation in OpenCV supports the following three definitions of distance: 
+
+    l1: Manhattan distance, 
+    l2: Euclidean distance, 
+    c: Checkboard distance, 
+    
+  If "all" is specified, the histograms will be compared with all the above distances. If not specified, the default value "l1" will be used.
+
+To get the help info,
+
+```bash
+$./TemplateHsHistComparison -h
+```
+
+Below are a couple of sample commands.
+
+```bash
+$./TemplateHsHistComparison srcImg templImg
+$./TemplateHsHistComparison srcImg templImg -m emd -d l2
+$./TemplateHsHistComparison srcImg templImg -m all -d all
 ```
