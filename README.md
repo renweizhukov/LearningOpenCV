@@ -317,3 +317,24 @@ $./TemplateHsHistComparison srcImg templImg
 $./TemplateHsHistComparison srcImg templImg -m emd -d l2
 $./TemplateHsHistComparison srcImg templImg -m all -d all
 ```
+
+## 16. FindMostDescriptivePatch
+
+This executable detects the keypoints of the source image and computes their SURF descriptors. Then it slides a fixed-size window over the source image and finds the window with the most number of keypoints in its internal area. The result window is called the characteristic patch of the source image. Note that 
+
+* By default, both the width and the height of the window is 100 if not specified.
+* The boundary area of the window where the keypoints are not counted is called "buffer zone". By default, both the width and the height of the buffer zone is 10 if not specified.
+
+To get the help info,
+
+```bash
+$./FindMostDescriptivePatch -h
+```
+
+Below are a couple of sample commands.
+
+```bash
+$./FindMostDescriptivePatch srcImg characteristicPatch
+$./FindMostDescriptivePatch srcImg characteristicPatch -w 50 -g 50
+$./FindMostDescriptivePatch srcImg characteristicPatch -w 200 -g 200 -b 20 -d 20
+```
