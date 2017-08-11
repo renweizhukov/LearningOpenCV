@@ -338,3 +338,11 @@ $./FindMostDescriptivePatch srcImg characteristicPatch
 $./FindMostDescriptivePatch srcImg characteristicPatch -w 50 -g 50
 $./FindMostDescriptivePatch srcImg characteristicPatch -w 200 -g 200 -b 20 -d 20
 ```
+
+## 17. FindMaxConvexContour
+
+This executable finds the contour with the maximum area and its convex hull. Below is a sample usage.
+
+```bash
+$./FindMaxConvexContour srcImg
+```
