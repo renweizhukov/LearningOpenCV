@@ -24,14 +24,14 @@ int main(int argc, char** argv)
 {
     if (argc < 2)
     {
-        cerr << "[ERROR]: No source image is specified." << endl;
+        cerr << "[ERROR]: No source image is specified." << endl << endl;
         return -1;
     }
 
     Mat srcImg = imread(argv[1]);
     if (srcImg.empty())
     {
-        cerr << "[ERROR]: Can't load the image file " << argv[1] << "." << endl;
+        cerr << "[ERROR]: Can't load the image file " << argv[1] << "." << endl << endl;
         return -1;
     }
 
@@ -236,7 +236,7 @@ int main(int argc, char** argv)
     }
     else
     {
-        cerr << "[ERROR]: Can't find the contour with the maximum area." << endl;
+        cerr << "[ERROR]: Can't find the contour with the maximum area." << endl << endl;
     }
 
     waitKey();
