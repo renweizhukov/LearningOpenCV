@@ -346,3 +346,28 @@ This executable finds the contour with the maximum area and its convex hull. Bel
 ```bash
 $./FindMaxConvexContour srcImg
 ```
+
+## 18. FlannKnnSavableMatching1toN
+
+Similar to FlannKnnMatching1toN, this executable detects the SURF keypoints of a given image, computes the corresponding descriptors, and then matches the descriptors with those of a set of training images using the knnMatch() method of the FLANN-based matcher. But the major difference is that it can save the trained FLANN-based matcher in two files (one for the matcher and the other for the FLANN index of the matcher) and load the trained FLANN-based matcher from the two files later. Note that 
+
+* Since the write/read method of the FLANN-based matcher doesn't save/load the trained descriptors and FLANN index, we have to create a customized savable matcher inherited from the FLANN-based matcher which can save/load the trained descriptors and FLANN index.
+* The FLANN index file is assumed to be in the same directory as the matcher file.
+
+To get the help info,
+
+```bash
+$ ./FlannKnnSavableMatching1toN help
+```
+
+To train the FLANN-based matcher and save the matcher,
+
+```bash
+$ ./FlannKnnSavableMatching1toN train -d [training-image-directory] -m [matcher-yml-file]
+```
+
+To load the FLANN-based matcher and do the matching,
+
+```bash
+$ ./FlannKnnSavableMatching1toN train -i [image-file] -m [matcher-yml-file]
+```

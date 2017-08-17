@@ -175,7 +175,12 @@ int FindBestMatchedImageFast(
     // each match() function it will train the matcher if the train step is not done.
     // For details, please see:
     // http://stackoverflow.com/questions/31744451/descriptormatcher-opencv-train
+    auto tTrainStart = Clock::now();
     matcher->train();
+    auto tTrainEnd = Clock::now();
+    printf("======================================================================\n");
+    printf("The time for training the descriptors of %lu images: %ld milliseconds\n",
+            allSrcDescriptors.size(), chrono::duration_cast<chrono::milliseconds>(tTrainEnd - tTrainStart).count());
 
     auto tMatchStart = Clock::now();
 
