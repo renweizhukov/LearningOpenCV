@@ -33,6 +33,7 @@ int main(int argc, char** argv)
         ("expected-class,c", po::value<string>(), "The expected class of the test image which will be compared with the class evaluated by the SVM classifiers")
         ("image,i", po::value<string>(), "The image file which will be used for testing")
         ("image-dir,d", po::value<string>(), "The directory of images which will be used for vocabulary building or classifier training or testing")
+        ("matcher-prefix,m", po::value<string>(), "The common name prefix (including the directory name) of the files which store the trained knn-matchers. It is an output for vocabulary building and an input for classifier testing")
         ("result,r", po::value<string>(), "The output file which will store the testing results")
         ("vocabulary,v", po::value<string>(), "The yml file which stores the vocabulary. It is an output for vocabulary building and an input for classifier training and testing");
 
@@ -63,6 +64,7 @@ int main(int argc, char** argv)
     string expectedClass;
     string imgDir;
     string imgFile;
+    string matcherPrefix;
     string resultFile;
     string vocabularyFile;
 
@@ -86,6 +88,12 @@ int main(int argc, char** argv)
             return -1;
         }
 
+        if (vm.count("matcher-prefix") == 0)
+        {
+            cerr << "[ERROR]: A common filename prefix (including the directory name) is required to be given for storing the trained matchers." << endl << endl;
+            return -1;
+        }
+
         if (vm.count("vocabulary") == 0)
         {
             cerr << "[ERROR]: A vocabulary yml file is required to be given for storing the vocabulary result." << endl << endl;
@@ -94,11 +102,13 @@ int main(int argc, char** argv)
 
         descriptorsFile = vm["descriptors"].as<string>();
         imgDir = vm["image-dir"].as<string>();
+        matcherPrefix = vm["matcher-prefix"].as<string>();
         vocabularyFile = vm["vocabulary"].as<string>();
-        VocabularyBuilder builder(imgDir, descriptorsFile, vocabularyFile);
+        VocabularyBuilder builder(imgDir, descriptorsFile, matcherPrefix, vocabularyFile);
 
         // We don't need the output descriptors and vocabulary, so we pass noArray() here.
         builder.ComputeDescriptors(noArray());
+        builder.SaveKnnMatchers();
         builder.BuildVocabulary(noArray());
     }
     else if (cmd == "train")
@@ -152,6 +162,12 @@ int main(int argc, char** argv)
             return -1;
         }
 
+        if (vm.count("matcher-prefix") == 0)
+        {
+            cerr << "[ERROR]: A common filename prefix (including the directory name) is required to be given for loading the trained matchers." << endl << endl;
+            return -1;
+        }
+
         if (vm.count("result") == 0)
         {
             cerr << "[ERROR]: A file is required to be given for recording the testing result." << endl << endl;
@@ -165,11 +181,11 @@ int main(int argc, char** argv)
         }
 
         classifierPrefix = vm["classifier-prefix"].as<string>();
-
+        matcherPrefix = vm["matcher-prefix"].as<string>();
         resultFile = vm["result"].as<string>();
         vocabularyFile = vm["vocabulary"].as<string>();
 
-        SvmClassifierTester svmTester(vocabularyFile, classifierPrefix, resultFile);
+        SvmClassifierTester svmTester(vocabularyFile, classifierPrefix, matcherPrefix, resultFile);
         if (!svmTester.InitBowImgDescriptorExtractor())
         {
             cerr << "[ERROR]: Failed to initialize the BOWImgDescriptorExtractor from the vocabulary file " << vocabularyFile << "." << endl << endl;
@@ -179,6 +195,12 @@ int main(int argc, char** argv)
         if (!svmTester.InitSvmClassifiers())
         {
             cerr << "[ERROR]: Failed to initialize the SVM classifiers from the classifier prefix " << classifierPrefix << "." << endl << endl;
+            return -1;
+        }
+
+        if (!svmTester.InitFlannBasedMatchers())
+        {
+            cerr << "[ERROR]: Failed to initialize the FLANN-based matchers from the matcher prefix " << matcherPrefix << "." << endl << endl;
             return -1;
         }
 

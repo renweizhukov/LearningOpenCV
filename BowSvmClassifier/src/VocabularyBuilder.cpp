@@ -6,6 +6,7 @@
  */
 
 #include "Utility.h"
+#include "FlannBasedSavableMatcher.h"
 #include "VocabularyBuilder.h"
 
 using namespace std;
@@ -22,10 +23,12 @@ VocabularyBuilder::VocabularyBuilder() :
 
 VocabularyBuilder::VocabularyBuilder(
     const string& imgBasePath,
-    const std::string& descriptorsFile,
+    const string& descriptorsFile,
+    const string& matcherFilePrefix,
     const string& vocabularyFile) :
     m_imgBasePath(imgBasePath),
     m_descriptorsFile(descriptorsFile),
+    m_matcherFilePrefix(matcherFilePrefix),
     m_vocabularyFile(vocabularyFile),
     m_cntBowClusters(1000), // TODO: Expose m_cntBowClusters and m_surfMinHessian as configurable parameters.
     m_surfMinHessian(400)
@@ -39,11 +42,13 @@ VocabularyBuilder::~VocabularyBuilder()
 
 void VocabularyBuilder::Reset(
     const string& imgBasePath,
-    const std::string& descriptorsFile,
+    const string& descriptorsFile,
+    const string& matcherFilePrefix,
     const string& vocabularyFile)
 {
     m_imgBasePath = imgBasePath;
     m_descriptorsFile = descriptorsFile;
+    m_matcherFilePrefix = matcherFilePrefix;
     m_vocabularyFile = vocabularyFile;
 
     m_descriptors.release();
@@ -91,14 +96,30 @@ void VocabularyBuilder::ComputeDescriptors(OutputArray descriptors)
         cout << "[INFO]: Write " << imgDescriptors.rows << " descriptors of image " << imgFile
             << " with label " << label << " to file " << m_descriptorsFile << "." << endl;
 
+        // A big Mat of descriptors without labels will be the input for building the vocabulary.
         m_descriptors.push_back(imgDescriptors);
+
+        // A label-to-Mat-vector map will be the input for training the knn matchers.
+        auto itLabelledDescriptors = m_labelledDescriptorInfoMap.find(label);
+        if (itLabelledDescriptors == m_labelledDescriptorInfoMap.end())
+        {
+            LabelledDescriptorInfo descriptorInfo;
+            descriptorInfo.filenameList.push_back(imgFile);
+            descriptorInfo.descriptors.push_back(imgDescriptors);
+
+            m_labelledDescriptorInfoMap.insert(make_pair(label, descriptorInfo));
+        }
+        else
+        {
+            itLabelledDescriptors->second.filenameList.push_back(imgFile);
+            itLabelledDescriptors->second.descriptors.push_back(imgDescriptors);
+        }
     }
 
     auto tEnd = Clock::now();
-
     cout << "[INFO]: Get " << m_descriptors.rows << " total descriptors in "
         << chrono::duration_cast<chrono::milliseconds>(tEnd - tStart).count()
-        << " milliseconds." << endl;
+        << " ms." << endl;
 
     fs << "imagefile_list" << allImgs;
     cout << "[INFO]: Write the filenames of " << allImgs.size() << " images to file "
@@ -110,6 +131,37 @@ void VocabularyBuilder::ComputeDescriptors(OutputArray descriptors)
     {
         m_descriptors.copyTo(descriptors);
     }
+}
+
+void VocabularyBuilder::SaveKnnMatchers()
+{
+    string matcherFileDir;
+    string matcherFilenamePrefix;
+    Utility::SeparateDirFromFilename(m_matcherFilePrefix, matcherFileDir, matcherFilenamePrefix);
+
+    auto tStart = Clock::now();
+
+    for (const auto& descriptorInfo : m_labelledDescriptorInfoMap)
+    {
+        // Create the FLANN-based matcher.
+        Ptr<FlannBasedSavableMatcher> matcher = FlannBasedSavableMatcher::create();
+
+        // Add the descriptors of one label to the matcher and train the matcher.
+        matcher->add(descriptorInfo.second.descriptors);
+        matcher->train();
+
+        // Save the trained FLANN-based matcher.
+        matcher->setTrainedImgFilenameList(descriptorInfo.second.filenameList);
+        matcher->setFlannIndexFileDir(matcherFileDir);
+        matcher->setFlannIndexFilename(matcherFilenamePrefix + '_' + descriptorInfo.first + "_klannindex");
+
+        matcher->save(m_matcherFilePrefix + '_' + descriptorInfo.first + ".yml");
+    }
+
+    auto tEnd = Clock::now();
+    cout << "[INFO]: Train and save the FLANN-based matcher in "
+        << chrono::duration_cast<chrono::milliseconds>(tEnd - tStart).count()
+        << " ms." << endl;
 }
 
 void VocabularyBuilder::BuildVocabulary(OutputArray vocabulary)
@@ -127,7 +179,7 @@ void VocabularyBuilder::BuildVocabulary(OutputArray vocabulary)
 
     cout << "[INFO]: Build the vocabulary in "
         << chrono::duration_cast<chrono::milliseconds>(tEnd - tStart).count()
-        << " milliseconds." << endl;
+        << " ms." << endl;
 
     FileStorage fs(m_vocabularyFile, FileStorage::WRITE);
     // TODO: Write the count of clusters, the descriptor type (i.e., "SURF"), and the descriptor

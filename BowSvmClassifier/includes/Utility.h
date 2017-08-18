@@ -41,6 +41,11 @@ public:
         const std::string& commonPrefix,
         std::vector<std::string>& fileList);
 
+    static void SeparateDirFromFilename(
+        const std::string& fullFilename,
+        std::string& dir,
+        std::string& filename);
+
     static std::string CvType2Str(const int type);
 };
 

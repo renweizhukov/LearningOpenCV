@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <algorithm>
 #include <chrono>
 
 #include <opencv2/core.hpp>
@@ -19,11 +20,14 @@
 #include <opencv2/xfeatures2d.hpp>
 #include <opencv2/ml.hpp>
 
+#include "FlannBasedSavableMatcher.h"
+
 struct ClassifierResult
 {
     std::string expectedClass;
     std::string evaluatedClass;
     std::map<std::string, float> class2ScoresMap;
+    std::map<std::string, float> class2MatchPercentMap;
 
     ClassifierResult()
     {
@@ -40,8 +44,15 @@ struct ClassifierResult
         {
             fs << classScore.first << classScore.second;
         }
-
         fs << "}";  // End of class2ScoresMap.
+
+        fs << "class2MatchPercentMap" << "{";
+        for (const auto& classMatchPercent : class2MatchPercentMap)
+        {
+            fs << classMatchPercent.first << classMatchPercent.second;
+        }
+        fs << "}";  // End of class2MatchPercentMap.
+
         fs << "}";  // End of ClassifierResult.
     }
 
@@ -61,6 +72,44 @@ struct ClassifierResult
             float classScore = (float)item;
             class2ScoresMap.insert(std::make_pair(className, classScore));
         }
+
+        class2MatchPercentMap.clear();
+        mapNode = node["class2MatchPercentMap"];
+        for (auto itMapNode = mapNode.begin(); itMapNode != mapNode.end(); ++itMapNode)
+        {
+            cv::FileNode item = *itMapNode;
+            std::string className = item.name();
+            float classMatchPercent = (float)item;
+            class2MatchPercentMap.insert(std::make_pair(className, classMatchPercent));
+        }
+    }
+};
+
+class ClassDecFuncComparison
+{
+private:
+
+    bool m_reverse;
+
+public:
+
+    ClassDecFuncComparison(const bool reverse = false)
+    {
+        m_reverse = reverse;
+    }
+
+    bool operator() (
+        const std::pair<std::string, float>& lhs,
+        const std::pair<std::string, float>& rhs)
+    {
+        if (m_reverse)
+        {
+            return (lhs.second > rhs.second);
+        }
+        else
+        {
+            return (lhs.second < rhs.second);
+        }
     }
 };
 
@@ -69,13 +118,19 @@ class SvmClassifierTester
 private:
 
     int m_surfMinHessian;
+    int m_knnMatchCandidateCnt;
+    float m_goodMatchPercentThreshold;
+
     std::string m_vocabularyFile;
     std::string m_classifierFilePrefix;
+    std::string m_matcherFilePrefix;
     std::string m_resultFile;
 
+    std::map<std::string, cv::Mat> m_img2SurfDescriptorMap;
     std::map<std::string, cv::Mat> m_img2BowDescriptorMap;
     std::map<std::string, ClassifierResult> m_img2ClassifierResultMap;
     std::map<std::string, cv::Ptr<cv::ml::SVM> > m_class2SvmMap;
+    std::map<std::string, cv::Ptr<cv::FlannBasedSavableMatcher> > m_class2FlannMatcherMap;
 
     cv::Ptr<cv::xfeatures2d::SurfFeatureDetector> m_detector;
     cv::Ptr<cv::DescriptorMatcher> m_descMatcher;
@@ -83,12 +138,15 @@ private:
 
     SvmClassifierTester();
 
-    bool ComputeBowDescriptor(
+    bool ComputeSurfAndBowDescriptor(
         const std::string& img2ClassifierResultMapKey,
         const cv::Mat& img);
     bool EvaluateOneImgInternal(
         const std::string& img2ClassifierResultMapKey,
         const cv::Mat& img);
+    std::pair<std::string, float> FlannBasedMatching(
+        const std::string& img2ClassifierResultMapKey,
+        const std::vector<std::pair<std::string, float> > matchCandidates);
 
     void WriteResultsToFile();
 
@@ -97,6 +155,7 @@ public:
     SvmClassifierTester(
         const std::string& vocabularyFile,
         const std::string& classifierFilePrefix,
+        const std::string& matcherFilePrefix,
         const std::string& resultFile);
     ~SvmClassifierTester();
 
@@ -104,9 +163,12 @@ public:
 
     bool InitSvmClassifiers();
 
+    bool InitFlannBasedMatchers();
+
     void Reset(
         const std::string& vocabularyFile,
         const std::string& classifierFilePrefix,
+        const std::string& matcherFilePrefix,
         const std::string& resultFile);
 
     void EvaluateOneImg(

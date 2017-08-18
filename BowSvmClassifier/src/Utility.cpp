@@ -172,7 +172,7 @@ int Utility::GetFilesWithCommonPrefix(
             if (filePrefix == commonPrefix)
             {
                 fileList.push_back(dirp->d_name);
-                cout << "[INFO]: Found label " << dirp->d_name << "." << endl;
+                cout << "[INFO]: Found file " << dirp->d_name << "." << endl;
             }
         }
     }
@@ -182,6 +182,30 @@ int Utility::GetFilesWithCommonPrefix(
 
     closedir(dp);
     return 0;
+}
+
+void Utility::SeparateDirFromFilename(
+    const string& fullFilename,
+    string& dir,
+    string& filename)
+{
+    dir = "./";
+    filename = fullFilename;
+
+    size_t posLastSlash = fullFilename.find_last_of('/');
+    size_t posLastDot = fullFilename.find_last_of('.');
+    if (posLastSlash != string::npos)
+    {
+        dir = fullFilename.substr(0, posLastSlash + 1);
+        if (posLastDot > posLastSlash)
+        {
+            filename = fullFilename.substr(posLastSlash + 1, posLastDot - posLastSlash - 1);
+        }
+        else
+        {
+            filename = fullFilename.substr(posLastSlash + 1);
+        }
+    }
 }
 
 // Courtesy of https://stackoverflow.com/questions/10167534/how-to-find-out-what-type-of-a-mat-object-is-with-mattype-in-opencv.

@@ -39,17 +39,23 @@ static void read(
 }
 
 SvmClassifierTester::SvmClassifierTester():
-    m_surfMinHessian(0)
+    m_surfMinHessian(0),
+    m_knnMatchCandidateCnt(0),
+    m_goodMatchPercentThreshold(0.0)
 {
 }
 
 SvmClassifierTester::SvmClassifierTester(
     const string& vocabularyFile,
     const string& classifierFilePrefix,
+    const string& matcherFilePrefix,
     const string& resultFile) :
     m_surfMinHessian(400),  // TODO: Read the value from the vocabulary file.
+    m_knnMatchCandidateCnt(2),
+    m_goodMatchPercentThreshold(10.0),
     m_vocabularyFile(vocabularyFile),
     m_classifierFilePrefix(classifierFilePrefix),
+    m_matcherFilePrefix(matcherFilePrefix),
     m_resultFile(resultFile)
 {
 
@@ -62,10 +68,12 @@ SvmClassifierTester::~SvmClassifierTester()
 void SvmClassifierTester::Reset(
     const string& vocabularyFile,
     const string& classifierFilePrefix,
+    const string& matcherFilePrefix,
     const string& resultFile)
 {
     m_vocabularyFile = vocabularyFile;
     m_classifierFilePrefix = classifierFilePrefix;
+    m_matcherFilePrefix = matcherFilePrefix;
     m_resultFile = resultFile;
 
     m_img2BowDescriptorMap.clear();
@@ -74,6 +82,7 @@ void SvmClassifierTester::Reset(
 
     InitBowImgDescriptorExtractor();
     InitSvmClassifiers();
+    InitFlannBasedMatchers();
 }
 
 bool SvmClassifierTester::InitBowImgDescriptorExtractor()
@@ -107,7 +116,7 @@ bool SvmClassifierTester::InitSvmClassifiers()
     string classifierPath = m_classifierFilePrefix.substr(0, slashPos);
     string classifierCommonPrefix = m_classifierFilePrefix.substr(slashPos + 1);
 
-    // Get all the classifier files under classifierBasePath.
+    // Get all the classifier files under classifierPath.
     vector<string> classifierFiles;
     Utility::GetFilesWithCommonPrefix(classifierPath, classifierCommonPrefix, classifierFiles);
 
@@ -129,15 +138,38 @@ bool SvmClassifierTester::InitSvmClassifiers()
     return true;
 }
 
-bool SvmClassifierTester::ComputeBowDescriptor(
-    const std::string& img2ClassifierResultMapKey,
-    const cv::Mat& img)
+bool SvmClassifierTester::InitFlannBasedMatchers()
+{
+    string matcherFileDir;
+    string matcherFilenamePrefix;
+    Utility::SeparateDirFromFilename(m_matcherFilePrefix, matcherFileDir, matcherFilenamePrefix);
+
+    // Load one FLANN-based matcher per each class.
+    for (const auto& classSvm : m_class2SvmMap)
+    {
+        Ptr<FlannBasedSavableMatcher> flannMatcher = FlannBasedSavableMatcher::create();
+        flannMatcher->setFlannIndexFileDir(matcherFileDir);
+
+        string matcherFullFilename = m_matcherFilePrefix + '_' + classSvm.first + ".yml";
+        FileStorage fs(matcherFullFilename, FileStorage::READ);
+        flannMatcher->read(fs.getFirstTopLevelNode());
+
+        m_class2FlannMatcherMap.insert(make_pair(classSvm.first, flannMatcher));
+    }
+
+    return true;
+}
+
+bool SvmClassifierTester::ComputeSurfAndBowDescriptor(
+    const string& img2ClassifierResultMapKey,
+    const Mat& img)
 {
     // Compute the SURF descriptors.
     vector<KeyPoint> surfKeypoints;
     Mat surfDescriptors;
 
     m_detector->detectAndCompute(img, noArray(), surfKeypoints, surfDescriptors);
+    m_img2SurfDescriptorMap.insert(make_pair(img2ClassifierResultMapKey, surfDescriptors));
 
     // Compute the BOW descriptor.
     Mat bowDescriptor;
@@ -151,14 +183,69 @@ bool SvmClassifierTester::ComputeBowDescriptor(
     return true;
 }
 
+pair<string, float> SvmClassifierTester::FlannBasedMatching(
+    const string& img2ClassifierResultMapKey,
+    const vector<pair<string, float> > matchCandidates)
+{
+    pair<string, float> maxClassMatchPercent;
+    maxClassMatchPercent.first = "unknown";
+    maxClassMatchPercent.second = 0.0;
+
+    auto itSurfDescriptors = m_img2SurfDescriptorMap.find(img2ClassifierResultMapKey);
+    if (itSurfDescriptors == m_img2SurfDescriptorMap.end())
+    {
+        cerr << "[ERROR]: Can't find the SURF descriptors of " << img2ClassifierResultMapKey << "." << endl << endl;
+        return maxClassMatchPercent;
+    }
+
+    Mat surfDescriptors = itSurfDescriptors->second;
+    for (size_t canIndex = 0; canIndex < matchCandidates.size(); ++canIndex)
+    {
+        auto itMatcher = m_class2FlannMatcherMap.find(matchCandidates[canIndex].first);
+        if (itMatcher == m_class2FlannMatcherMap.end())
+        {
+            cerr << "[ERROR]: Can't find the FLANN-based matcher of class " << matchCandidates[canIndex].first << "." << endl << endl;
+            return maxClassMatchPercent;
+        }
+
+        Ptr<FlannBasedSavableMatcher> flannMatcher = itMatcher->second;
+        vector<vector<DMatch>> allKnnMatches;
+        auto tStart = Clock::now();
+        flannMatcher->knnMatch(surfDescriptors, allKnnMatches, 2);
+        auto tEnd = Clock::now();
+        cout << "[INFO]: Do the FLANN-based knnMatch of " << img2ClassifierResultMapKey << " with class "
+            << matchCandidates[canIndex].first << " in " << chrono::duration_cast<chrono::milliseconds>(tEnd - tStart).count()
+            << " ms." << endl;
+
+        int goodMatchCnt = 0;
+        for (auto& knnMatchPair: allKnnMatches)
+        {
+            if (knnMatchPair.size() > 1 && knnMatchPair[0].distance < 0.75 * knnMatchPair[1].distance)
+            {
+                ++goodMatchCnt;
+            }
+        }
+
+        float goodMatchPercent = 100.0 * goodMatchCnt / surfDescriptors.rows;
+        m_img2ClassifierResultMap[img2ClassifierResultMapKey].class2MatchPercentMap[matchCandidates[canIndex].first] = goodMatchPercent;
+        if (goodMatchPercent > maxClassMatchPercent.second)
+        {
+            maxClassMatchPercent.first = matchCandidates[canIndex].first;
+            maxClassMatchPercent.second = goodMatchPercent;
+        }
+    }
+
+    return maxClassMatchPercent;
+}
+
 bool SvmClassifierTester::EvaluateOneImgInternal(
-    const std::string& img2ClassifierResultMapKey,
-    const cv::Mat& img)
+    const string& img2ClassifierResultMapKey,
+    const Mat& img)
 {
     auto tStart = Clock::now();
 
     // Compute the BOW descriptor.
-    if (!ComputeBowDescriptor(img2ClassifierResultMapKey, img))
+    if (!ComputeSurfAndBowDescriptor(img2ClassifierResultMapKey, img))
     {
         cerr << "[ERROR]: Failed to compute the BOW descriptor for " << img2ClassifierResultMapKey << "." << endl << endl;
         return false;
@@ -167,33 +254,55 @@ bool SvmClassifierTester::EvaluateOneImgInternal(
     auto tEnd = Clock::now();
     cout << "[INFO]: Compute the BOW descriptor of " << img2ClassifierResultMapKey << " in "
         << chrono::duration_cast<chrono::milliseconds>(tEnd - tStart).count()
-        << " milliseconds." << endl;
+        << " ms." << endl;
 
     tStart = Clock::now();
 
-    // Test each 1-vs-all SVM and select the one with the best score.
-    // TODO: Consider a more sophisticated approach for selecting the one with the best score.
+    // Test each 1-vs-all SVM and select a couple of candidates with the best scores.
+    // TODO: Consider a more sophisticated approach for selecting the ones with the best scores.
     // For details, please refer to https://github.com/royshil/FoodcamClassifier/blob/master/predict_common.cpp
-    float minDecisionFuncVal = FLT_MAX;
-    string minClass;
+    vector<pair<string, float>> classDecFuncVals;
     for (const auto& svm : m_class2SvmMap)
     {
         float decisionFuncVal = svm.second->predict(m_img2BowDescriptorMap[img2ClassifierResultMapKey], noArray(), true);
         m_img2ClassifierResultMap[img2ClassifierResultMapKey].class2ScoresMap.insert(make_pair(svm.first, decisionFuncVal));
 
-        if (decisionFuncVal < minDecisionFuncVal)
-        {
-            minDecisionFuncVal = decisionFuncVal;
-            minClass = svm.first;
-        }
+        classDecFuncVals.push_back(make_pair(svm.first, decisionFuncVal));
     }
 
     tEnd = Clock::now();
     cout << "[INFO]: Test all 1-vs-all classifiers of " << img2ClassifierResultMapKey << " in "
         << chrono::duration_cast<chrono::milliseconds>(tEnd - tStart).count()
-        << " milliseconds." << endl;
+        << " ms." << endl;
 
-    m_img2ClassifierResultMap[img2ClassifierResultMapKey].evaluatedClass = minClass;
+    // Create a min-heap from classDecFuncVals;
+    make_heap(classDecFuncVals.begin(), classDecFuncVals.end(), ClassDecFuncComparison(true));
+    vector<pair<string, float>> flannMatchCandidates;
+    for (int canIndex = 0; canIndex < m_knnMatchCandidateCnt; ++canIndex)
+    {
+        flannMatchCandidates.push_back(classDecFuncVals.front());
+        pop_heap(classDecFuncVals.begin(), classDecFuncVals.end(), ClassDecFuncComparison(true));
+        classDecFuncVals.pop_back();
+    }
+
+    // Do the FLANN-based matching for the candidates. If the maximum percentage of the good matches exceeds a certain
+    // threshold m_goodMatchPercentThreshold, then evaluate the class as the one with the maximum percentage; otherwise
+    // evaluate the class as "unknown".
+    pair<string, float> bestMatch = FlannBasedMatching(img2ClassifierResultMapKey, flannMatchCandidates);
+    if (bestMatch.second >= m_goodMatchPercentThreshold)
+    {
+        cout << "[INFO]: The maximum match percentage " << bestMatch.second << "% of " << img2ClassifierResultMapKey
+            << " is above the threshold " << m_goodMatchPercentThreshold << "%, so evaluate the class as "
+            << bestMatch.first << "." << endl;
+    }
+    else
+    {
+        bestMatch.first = "unknown";
+        cout << "[INFO]: The maximum match percentage " << bestMatch.second << "% of " << img2ClassifierResultMapKey
+            << " is below the threshold " << m_goodMatchPercentThreshold << "%, so evaluate the class as unknown." << endl;
+    }
+
+    m_img2ClassifierResultMap[img2ClassifierResultMapKey].evaluatedClass = bestMatch.first;
 
     return true;
 }
@@ -206,10 +315,18 @@ void SvmClassifierTester::WriteResultsToFile()
 
     for (auto& imgResult : m_img2ClassifierResultMap)
     {
-        cout << "[INFO]: image " << imgResult.first << ": expected class = " << imgResult.second.expectedClass
-            << ", evaluated class = " << imgResult.second.evaluatedClass << " with score = "
-            << imgResult.second.class2ScoresMap[imgResult.second.evaluatedClass] << "." << endl;
-
+        if (imgResult.second.evaluatedClass != "unknown")
+        {
+            cout << "[INFO]: " << imgResult.first << ": expected class = " << imgResult.second.expectedClass
+                << ", evaluated class = " << imgResult.second.evaluatedClass << " with score = "
+                << imgResult.second.class2ScoresMap[imgResult.second.evaluatedClass] << " and matchPercent = "
+                << imgResult.second.class2MatchPercentMap[imgResult.second.evaluatedClass] << "%." << endl;
+        }
+        else
+        {
+            cout << "[INFO]: " << imgResult.first << ": expected class = " << imgResult.second.expectedClass
+                << ", evaluated class = unknown." << endl;
+        }
         //cout << "[DEBUG]: image " << imgResult.first << ": scores" << endl;
         //for (const auto& classScore : imgResult.second.class2ScoresMap)
         //{
@@ -281,7 +398,7 @@ void SvmClassifierTester::EvaluateOneImg(
     auto tEnd = Clock::now();
     cout << "[INFO]: Evaluate the class of image " << imgFullFilename << " in "
         << chrono::duration_cast<chrono::milliseconds>(tEnd - tStart).count()
-        << " milliseconds." << endl;
+        << " ms." << endl;
 
     // Write the evaluated result (i.e., the evaluated class and scores) of the test image
     // along with its expected class to the result file.
@@ -326,7 +443,7 @@ void SvmClassifierTester::EvaluateImgs(const string& imgBasePath)
     auto tEnd = Clock::now();
     cout << "[INFO]: Evaluate the classes of " << imgWithLabels.size() << " images in "
         << chrono::duration_cast<chrono::milliseconds>(tEnd - tStart).count()
-        << " milliseconds." << endl;
+        << " ms." << endl;
 
     // Write the evaluated results (i.e., the evaluated classes and scores) of all the test images
     // along with their expected classes to the result file.

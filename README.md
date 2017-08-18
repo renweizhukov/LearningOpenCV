@@ -1,6 +1,8 @@
 # LearningOpenCV
 
-Below are two example OpenCV Eclipse projects given in the tutorial http://docs.opencv.org/3.2.0/d7/d16/tutorial_linux_eclipse.html. 
+All the code are compiled against OpenCV 3.2.0 on Ubuntu 16.04LTS.
+
+"DisplayImage" and "HelloWorld" are two example OpenCV Eclipse projects given in the tutorial http://docs.opencv.org/3.2.0/d7/d16/tutorial_linux_eclipse.html. 
 
 ## 1. DisplayImage
 
@@ -92,7 +94,7 @@ Two examples:
 
 ## 10. BowSvmClassifier
 
-This executable implements a simple object classifier with Bag-of-Word (BOW) and 1-vs-all SVM using OpenCV as introduced in http://www.morethantechnical.com/2011/08/25/a-simple-object-classifier-with-bag-of-words-using-opencv-2-3-w-code/. Note that it depends on a newer version 3.2.0 of OpenCV, and it is compiled and tested on Ubuntu 16.04LTS. 
+This executable implements a simple object classifier with Bag-of-Word (BOW) and 1-vs-all SVM using OpenCV as introduced in http://www.morethantechnical.com/2011/08/25/a-simple-object-classifier-with-bag-of-words-using-opencv-2-3-w-code/. After the SVM classification, it selects two class candidates with the best SVM scores and does the FLANN-based knnMatch of the SURF descriptors. If the maximum percentage of the good matches exceeds a certain threshold, then evaluate the class as the one with the maximum percentage; otherwise evaluate the class as "unknown".
 
 To display the information about the available commands and options, please run the help command.
 
@@ -102,12 +104,12 @@ $ ./BowSvmClassifier help
 
 Besides the help command, this executable has three other commands: build, train, and test.
 
-### 10.1 Build the vocabulary.
+### 10.1 Build the vocabulary and save the trained FLANN-based matchers.
 
 Below is an example build command.
 
 ```bash
-./BowSvmClassifier build -d ./train-images -e ./descriptors.yml -v ./vocabulary.yml
+./BowSvmClassifier build -d ./train-images -e ./descriptors.yml -m ./matcher -v ./vocabulary.yml
 ```
 
 The SURF descriptors of the images are written to descriptors.yml and the BOW vocabulary is written to vocabulary.yml. Note that the labelled images need to be stored in the following hierachical tree:
@@ -133,20 +135,20 @@ Below is an example train command.
 
 The SURF descriptors of the train images are loaded from descriptor.yml, so they don't need to be computed again. The BOW vocabulary is loaded from vocabulary.yml. The 1-vs-all SVM classifiers are saved in a set of yml files with the common prefix "SvmClassifier".
 
-### 10.3 Test the 1-vs-all SVM classifiers.
+### 10.3 Test the 1-vs-all SVM classifiers and the knnMatch of the trained FLANN-based matchers.
 
 (1) To test one image,
 
 ```bash
-./BowSvmClassifier test -p ./SvmClassifier -c o -i ./test.jpg -r ./result.yml -v ./vocabulary.yml
+./BowSvmClassifier test -p ./SvmClassifier -c label -i ./test.jpg -r ./result.yml -m ./matcher -v ./vocabulary.yml
 ```
 
-The option "-c" specifies the true class or the expected class of the test image. The evaluated class and the decision function values of all the 1-vs-all SVM classifiers are written to result.yml.
+The option "-c" specifies the true class or the expected class of the test image. The evaluated class and the decision function values of all the 1-vs-all SVM classifiers are written to result.yml as well as the match percentage of the two class candidates.
 
 (2) To test a set of images,
 
 ```bash
-./BowSvmClassifier test -p ./SvmClassifier -d ./test-images -r ./results.yml -v ./vocabulary.yml
+./BowSvmClassifier test -p ./SvmClassifier -d ./test-images -r ./results.yml -m ./matcher -v ./vocabulary.yml
 ```
 
 Note that the test images need to be stored in a tree similar to the one for building the vocabulary above, where the true class or the expected class of each image is given by its directory name.

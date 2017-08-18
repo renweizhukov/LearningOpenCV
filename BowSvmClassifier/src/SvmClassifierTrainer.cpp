@@ -144,7 +144,7 @@ bool SvmClassifierTrainer::ComputeBowDescriptors()
 
     cout << "[INFO]: Compute the BOW descriptors of " << imgFullFilenames.size() << " images in "
         << chrono::duration_cast<chrono::milliseconds>(tEnd - tStart).count()
-        << " milliseconds." << endl;
+        << " ms." << endl;
 
     return true;
 }
@@ -203,7 +203,7 @@ void SvmClassifierTrainer::TrainAndSaveSvms()
 
     cout << "[INFO]: Train the 1-vs-all SVM classifiers of " << m_label2BowDescriptorsMap.size() << " classes in "
         << chrono::duration_cast<chrono::milliseconds>(tEnd - tStart).count()
-        << " milliseconds." << endl;
+        << " ms." << endl;
 }
 
 void SvmClassifierTrainer::Train()
