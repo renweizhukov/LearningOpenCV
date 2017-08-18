@@ -52,7 +52,8 @@ SvmClassifierTester::SvmClassifierTester(
     const string& resultFile) :
     m_surfMinHessian(400),  // TODO: Read the value from the vocabulary file.
     m_knnMatchCandidateCnt(2),
-    m_goodMatchPercentThreshold(10.0),
+    m_goodMatchPercentThreshold(7.5),
+    m_goodMatchCntThreshold(10),
     m_vocabularyFile(vocabularyFile),
     m_classifierFilePrefix(classifierFilePrefix),
     m_matcherFilePrefix(matcherFilePrefix),
@@ -228,6 +229,7 @@ pair<string, float> SvmClassifierTester::FlannBasedMatching(
 
         float goodMatchPercent = 100.0 * goodMatchCnt / surfDescriptors.rows;
         m_img2ClassifierResultMap[img2ClassifierResultMapKey].class2MatchPercentMap[matchCandidates[canIndex].first] = goodMatchPercent;
+        m_img2ClassifierResultMap[img2ClassifierResultMapKey].class2MatchCntMap[matchCandidates[canIndex].first] = goodMatchCnt;
         if (goodMatchPercent > maxClassMatchPercent.second)
         {
             maxClassMatchPercent.first = matchCandidates[canIndex].first;
@@ -289,11 +291,22 @@ bool SvmClassifierTester::EvaluateOneImgInternal(
     // threshold m_goodMatchPercentThreshold, then evaluate the class as the one with the maximum percentage; otherwise
     // evaluate the class as "unknown".
     pair<string, float> bestMatch = FlannBasedMatching(img2ClassifierResultMapKey, flannMatchCandidates);
+    int bestMatchCnt = m_img2ClassifierResultMap[img2ClassifierResultMapKey].class2MatchCntMap[bestMatch.first];
     if (bestMatch.second >= m_goodMatchPercentThreshold)
     {
-        cout << "[INFO]: The maximum match percentage " << bestMatch.second << "% of " << img2ClassifierResultMapKey
-            << " is above the threshold " << m_goodMatchPercentThreshold << "%, so evaluate the class as "
-            << bestMatch.first << "." << endl;
+        if (bestMatchCnt >= m_goodMatchCntThreshold)
+        {
+            cout << "[INFO]: The maximum match percentage " << bestMatch.second << "% of " << img2ClassifierResultMapKey
+                << " is above the threshold " << m_goodMatchPercentThreshold << "%, so evaluate the class as "
+                << bestMatch.first << "." << endl;
+        }
+        else
+        {
+            bestMatch.first = "unknown";
+            cout << "[INFO]: Although the maximum match percentage " << bestMatch.second << "% of " << img2ClassifierResultMapKey
+                << " is above the threshold " << m_goodMatchPercentThreshold << "%, the maximum match count " << bestMatchCnt
+                << " is below the threshold " << m_goodMatchCntThreshold << ", so evaluate the class as unknown." << endl;
+        }
     }
     else
     {

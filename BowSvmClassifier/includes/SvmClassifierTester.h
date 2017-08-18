@@ -28,6 +28,7 @@ struct ClassifierResult
     std::string evaluatedClass;
     std::map<std::string, float> class2ScoresMap;
     std::map<std::string, float> class2MatchPercentMap;
+    std::map<std::string, int> class2MatchCntMap;
 
     ClassifierResult()
     {
@@ -52,6 +53,13 @@ struct ClassifierResult
             fs << classMatchPercent.first << classMatchPercent.second;
         }
         fs << "}";  // End of class2MatchPercentMap.
+
+        fs << "class2MatchCntMap" << "{";
+        for (const auto& classMatchCnt : class2MatchCntMap)
+        {
+            fs << classMatchCnt.first << classMatchCnt.second;
+        }
+        fs << "}";  // End of class2MatchCntMap.
 
         fs << "}";  // End of ClassifierResult.
     }
@@ -81,6 +89,16 @@ struct ClassifierResult
             std::string className = item.name();
             float classMatchPercent = (float)item;
             class2MatchPercentMap.insert(std::make_pair(className, classMatchPercent));
+        }
+
+        class2MatchCntMap.clear();
+        mapNode = node["class2MatchCntMap"];
+        for (auto itMapNode = mapNode.begin(); itMapNode != mapNode.end(); ++itMapNode)
+        {
+            cv::FileNode item = *itMapNode;
+            std::string className = item.name();
+            int classMatchCnt = (int)item;
+            class2MatchCntMap.insert(std::make_pair(className, classMatchCnt));
         }
     }
 };
@@ -120,6 +138,7 @@ private:
     int m_surfMinHessian;
     int m_knnMatchCandidateCnt;
     float m_goodMatchPercentThreshold;
+    int m_goodMatchCntThreshold;
 
     std::string m_vocabularyFile;
     std::string m_classifierFilePrefix;
