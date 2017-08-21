@@ -136,13 +136,13 @@ int FindBestMatchedImageSlow(
     printf("Min Dist: %f \n", minDist);
     printf("Max Dist: %f \n", maxDist);
 
-    // Find only "good" matches, i.e., whose distance is less than 2*minDist, or a small preset
+    // Find only "good" matches, i.e., whose distance is less than 5*minDist, or a small preset
     // threshold (e.g., 0.02) in case that minDist is very small.
     vector<int> matchCnts(allSrcDescriptors.size());
     vector<int> goodMatchCnts(allSrcDescriptors.size());
     for (auto& match: allMatches)
     {
-        if (match.distance <= max(2*minDist, presetMaxGoodDist))
+        if (match.distance <= max(5*minDist, presetMaxGoodDist))
         {
             allGoodMatches.push_back(match);
             goodMatchCnts[match.imgIdx]++;
@@ -228,13 +228,13 @@ int FindBestMatchedImageFast(
     printf("Min Dist: %f \n", minDist);
     printf("Max Dist: %f \n", maxDist);
 
-    // Find only "good" matches, i.e., whose distance is less than 2*minDist, or a small preset
+    // Find only "good" matches, i.e., whose distance is less than 5*minDist, or a small preset
     // threshold (e.g., 0.02) in case that minDist is very small.
     vector<int> matchCnts(allSrcDescriptors.size());
     vector<int> goodMatchCnts(allSrcDescriptors.size());
     for (auto& match: allMatches)
     {
-        if (match.distance <= max(2*minDist, presetMaxGoodDist))
+        if (match.distance <= max(5*minDist, presetMaxGoodDist))
         {
             allGoodMatches.push_back(match);
             goodMatchCnts[match.imgIdx]++;
