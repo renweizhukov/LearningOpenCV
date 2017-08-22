@@ -52,8 +52,8 @@ SvmClassifierTester::SvmClassifierTester(
     const string& resultFile) :
     m_surfMinHessian(400),  // TODO: Read the value from the vocabulary file.
     m_knnMatchCandidateCnt(2),
-    m_goodMatchPercentThreshold(7.5),
-    m_goodMatchCntThreshold(10),
+    m_goodMatchPercentThreshold(15.0),
+    m_goodMatchCntThreshold(20),
     m_vocabularyFile(vocabularyFile),
     m_classifierFilePrefix(classifierFilePrefix),
     m_matcherFilePrefix(matcherFilePrefix),
@@ -210,18 +210,27 @@ pair<string, float> SvmClassifierTester::FlannBasedMatching(
         }
 
         Ptr<FlannBasedSavableMatcher> flannMatcher = itMatcher->second;
-        vector<vector<DMatch>> allKnnMatches;
+        vector<DMatch> allMatches;
         auto tStart = Clock::now();
-        flannMatcher->knnMatch(surfDescriptors, allKnnMatches, 2);
+        flannMatcher->match(surfDescriptors, allMatches);
         auto tEnd = Clock::now();
         cout << "[INFO]: Do the FLANN-based knnMatch of " << img2ClassifierResultMapKey << " with class "
             << matchCandidates[canIndex].first << " in " << chrono::duration_cast<chrono::milliseconds>(tEnd - tStart).count()
             << " ms." << endl;
 
-        int goodMatchCnt = 0;
-        for (auto& knnMatchPair: allKnnMatches)
+        float minDist = FLT_MAX;
+        float maxDist = 0.0;
+        for (const auto& match: allMatches)
         {
-            if (knnMatchPair.size() > 1 && knnMatchPair[0].distance < 0.75 * knnMatchPair[1].distance)
+            float dist = match.distance;
+            minDist = min(minDist, dist);
+            maxDist = max(maxDist, dist);
+        }
+
+        int goodMatchCnt = 0;
+        for (const auto& match: allMatches)
+        {
+            if (match.distance <= min(5*minDist, maxDist/3))
             {
                 ++goodMatchCnt;
             }
