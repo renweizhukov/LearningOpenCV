@@ -113,7 +113,7 @@ int main(int argc, char** argv)
         auto tTrainStart = Clock::now();
         flannMatcher->train();
         auto tTrainEnd = Clock::now();
-        cout << "[INFO]: Trained the FLANN-based matcher in " << chrono::duration_cast<chrono::milliseconds>(tTrainEnd - tTrainStart).count()
+        cout << "[DEBUG]: Trained the FLANN-based matcher in " << chrono::duration_cast<chrono::milliseconds>(tTrainEnd - tTrainStart).count()
             << " ms." << endl;
 
         cout << "[INFO]: Saving the trained FLANN-based matcher." << endl;
@@ -161,8 +161,17 @@ int main(int argc, char** argv)
         // so there is no need to set them here.
         flannMatcher->setFlannIndexFileDir(matcherFileDir);
 
+        auto tFsStart = Clock::now();
         FileStorage fs(matcherFile, FileStorage::READ);
+        auto tFsEnd = Clock::now();
+        cout << "[DEBUG]: Create the FileStorage for the matcher file in " << chrono::duration_cast<chrono::milliseconds>(tFsEnd - tFsStart).count()
+            << " ms." << endl;
+
+        auto tReadStart = Clock::now();
         flannMatcher->read(fs.getFirstTopLevelNode());
+        auto tReadEnd = Clock::now();
+        cout << "[DEBUG]: Loaded the matcher in " << chrono::duration_cast<chrono::milliseconds>(tReadEnd - tReadStart).count()
+            << " ms." << endl;
 
         vector<string> trainedImgFilenameList;
         trainedImgFilenameList = flannMatcher->getTrainedImgFilenameList();
@@ -176,7 +185,7 @@ int main(int argc, char** argv)
         auto tMatchStart = Clock::now();
         flannMatcher->knnMatch(imgDescriptors, allKnnMatches, 2);
         auto tMatchEnd = Clock::now();
-        cout << "[INOF]: Did the KNN match in " << chrono::duration_cast<chrono::milliseconds>(tMatchEnd - tMatchStart).count()
+        cout << "[DEBUG]: Did the KNN match in " << chrono::duration_cast<chrono::milliseconds>(tMatchEnd - tMatchStart).count()
             << " ms." << endl;
 
         // Find only "good" matches among the closest matches, i.e., whose distance is much better (<0.75) than

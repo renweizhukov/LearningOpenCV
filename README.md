@@ -379,5 +379,45 @@ $ ./FlannKnnSavableMatching1toN train -d [training-image-directory] -m [matcher-
 To load the FLANN-based matcher and do the matching,
 
 ```bash
-$ ./FlannKnnSavableMatching1toN train -i [image-file] -m [matcher-yml-file]
+$ ./FlannKnnSavableMatching1toN match -i [image-file] -m [matcher-yml-file]
 ```
+
+## 19. FlannKnnSavableMatchingM2N
+
+This executable extends FlannKnnSavableMatching1toN such that it can do the SURF matching of multiple images in a single "match" command. It can also write detailed match results into a yml file. Note that the labelled training images need to be stored in the following hierachical tree:
+
+```
+train-images
+├── label1
+│   └── image11
+├── label2
+│   └── image21
+└── label3
+    └── image31 
+```
+
+To get the help info,
+
+```bash
+$ ./FlannKnnSavableMatchingM2N help
+```
+
+To train the FLANN-based matcher and save the matcher,
+
+```bash
+$ ./FlannKnnSavableMatchingM2N train -d [training-image-directory] -m [matcher-yml-file]
+```
+
+To load the FLANN-based matcher and do the matching of multiple images,
+
+```bash
+$ ./FlannKnnSavableMatchingM2N match -d [training-image-directory] -m [matcher-yml-file] -r [result-yml-file]
+```
+
+To load the FLANN-based matcher and do the matching of a single image,
+
+```bash
+$ ./FlannKnnSavableMatchingM2N match -i [image-file] -l [expected-label] -m [matcher-yml-file] -r [result-yml-file]
+```
+
+where the option "-l" specifies the expected label of the input image.
