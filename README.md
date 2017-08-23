@@ -94,7 +94,15 @@ Two examples:
 
 ## 10. BowSvmClassifier
 
-This executable implements a simple object classifier with Bag-of-Word (BOW) and 1-vs-all SVM using OpenCV as introduced in http://www.morethantechnical.com/2011/08/25/a-simple-object-classifier-with-bag-of-words-using-opencv-2-3-w-code/. After the SVM classification, it selects two class candidates with the best SVM scores and does the FLANN-based knnMatch of the SURF descriptors. If the maximum percentage of the good matches exceeds a certain threshold, then evaluate the class as the one with the maximum percentage; otherwise evaluate the class as "unknown".
+This executable implements a simple object classifier with Bag-of-Word (BOW) and 1-vs-all SVM using OpenCV as introduced in http://www.morethantechnical.com/2011/08/25/a-simple-object-classifier-with-bag-of-words-using-opencv-2-3-w-code/. After the SVM classification, it does an pre-trained FLANN-based knnMatch of the SURF descriptors with a set of high-quality images. Note that the set of the high-quality images for training the FLANN-based knnMatch is a subset of the images for building the BOW vocabulary and training the SVM classifiers, and more importantly, each class has only one high-quality image for training the FLANN-based knnMatch. If one class has more than one image for training the FLANN-based knnMatch, the repetitive descriptors in multiple images will invalidate the good match selection in knnMatch.
+
+If 
+
+(1) the best knnMatched class coincides with the BOW-SVM evaluted class, 
+(2) the maximum percentage of the good matches exceeds a certain threshold, 
+(3) the count of good matches is greater than or equal to a certain number, 
+
+then evaluate the class as the one with the maximum knnMatch percentage; otherwise evaluate the class as "unknown".
 
 To display the information about the available commands and options, please run the help command.
 
@@ -104,12 +112,12 @@ $ ./BowSvmClassifier help
 
 Besides the help command, this executable has three other commands: build, train, and test.
 
-### 10.1 Build the vocabulary and save the trained FLANN-based matchers.
+### 10.1 Build the vocabulary.
 
 Below is an example build command.
 
 ```bash
-./BowSvmClassifier build -d ./train-images -e ./descriptors.yml -m ./matcher -v ./vocabulary.yml
+./BowSvmClassifier build -d ./train-images -e ./descriptors.yml -v ./vocabulary.yml
 ```
 
 The SURF descriptors of the images are written to descriptors.yml and the BOW vocabulary is written to vocabulary.yml. Note that the labelled images need to be stored in the following hierachical tree:
@@ -125,22 +133,22 @@ train-images
     └── image22 
 ``` 
 
-### 10.2 Train the 1-vs-all SVM classifiers.
+### 10.2 Train the 1-vs-all SVM classifiers and save the FLANN-based matcher.
 
 Below is an example train command.
 
 ```bash
-./BowSvmClassifier train -p ./SvmClassifier -e ./descriptors.yml -v ./vocabulary.yml
+./BowSvmClassifier train -p ./SvmClassifier -e ./descriptors.yml -v ./vocabulary.yml -d ./match-images -m ./matcher.yml
 ```
 
-The SURF descriptors of the train images are loaded from descriptor.yml, so they don't need to be computed again. The BOW vocabulary is loaded from vocabulary.yml. The 1-vs-all SVM classifiers are saved in a set of yml files with the common prefix "SvmClassifier".
+The SURF descriptors of the train images are loaded from descriptor.yml, so they don't need to be computed again. The BOW vocabulary is loaded from vocabulary.yml. The 1-vs-all SVM classifiers are saved in a set of yml files with the common prefix "SvmClassifier". The images for training the FLANN-based matcher are stored in the same hierachical way as those for building the vocabulary, and the trained FLANN-based matcher is saved in matcher.yml.
 
 ### 10.3 Test the 1-vs-all SVM classifiers and the knnMatch of the trained FLANN-based matchers.
 
 (1) To test one image,
 
 ```bash
-./BowSvmClassifier test -p ./SvmClassifier -c label -i ./test.jpg -r ./result.yml -m ./matcher -v ./vocabulary.yml
+./BowSvmClassifier test -p ./SvmClassifier -c label -i ./test.jpg -r ./result.yml -m ./matcher.yml -v ./vocabulary.yml
 ```
 
 The option "-c" specifies the true class or the expected class of the test image. The evaluated class and the decision function values of all the 1-vs-all SVM classifiers are written to result.yml as well as the match percentage of the two class candidates.
@@ -148,7 +156,7 @@ The option "-c" specifies the true class or the expected class of the test image
 (2) To test a set of images,
 
 ```bash
-./BowSvmClassifier test -p ./SvmClassifier -d ./test-images -r ./results.yml -m ./matcher -v ./vocabulary.yml
+./BowSvmClassifier test -p ./SvmClassifier -d ./test-images -r ./results.yml -m ./matcher.yml -v ./vocabulary.yml
 ```
 
 Note that the test images need to be stored in a tree similar to the one for building the vocabulary above, where the true class or the expected class of each image is given by its directory name.

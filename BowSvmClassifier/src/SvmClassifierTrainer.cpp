@@ -6,10 +6,12 @@
  */
 
 #include "Utility.h"
+#include "FlannBasedSavableMatcher.h"
 #include "SvmClassifierTrainer.h"
 
 using namespace std;
 using namespace cv;
+using namespace cv::xfeatures2d;
 using namespace cv::ml;
 
 typedef std::chrono::high_resolution_clock Clock;
@@ -21,10 +23,15 @@ SvmClassifierTrainer::SvmClassifierTrainer()
 SvmClassifierTrainer::SvmClassifierTrainer(
     const string& vocabularyFile,
     const string& descriptorsFile,
+    const std::string& imgBasePath,
+    const std::string& matcherFile,
     const string& classifierFilePrefix) :
     m_vocabularyFile(vocabularyFile),
     m_descriptorsFile(descriptorsFile),
-    m_classifierFilePrefix(classifierFilePrefix)
+    m_imgBasePath(imgBasePath),
+    m_matcherFile(matcherFile),
+    m_classifierFilePrefix(classifierFilePrefix),
+    m_surfMinHessian(400)   // TODO: Expose m_cntBowClusters and m_surfMinHessian as configurable parameters.
 {
 
 }
@@ -36,13 +43,17 @@ SvmClassifierTrainer::~SvmClassifierTrainer()
 void SvmClassifierTrainer::Reset(
     const std::string& vocabularyFile,
     const std::string& descriptorsFile,
+    const std::string& imgBasePath,
+    const std::string& matcherFile,
     const std::string& classifierFilePrefix)
 {
     m_vocabularyFile = vocabularyFile;
     m_descriptorsFile = descriptorsFile;
+    m_imgBasePath = imgBasePath;
+    m_matcherFile = matcherFile;
     m_classifierFilePrefix = classifierFilePrefix;
 
-    m_img2DescriptorInfoMap.clear();
+    m_img2DescriptorsMap.clear();
     m_label2BowDescriptorsMap.clear();
 }
 
@@ -58,46 +69,45 @@ bool SvmClassifierTrainer::ComputeBowDescriptors()
 
     // Load the filenames of all the training images.
     FileStorage fsDescriptors(m_descriptorsFile, FileStorage::READ);
-    FileNode imgFileListNode = fsDescriptors["imagefile_list"];
-    if (imgFileListNode.type() != FileNode::SEQ)
+    FileNode img2LabelListNode = fsDescriptors["image_label_list"];
+    if (img2LabelListNode.type() != FileNode::SEQ)
     {
-        cerr << "[ERROR]: The list of image filenames is not a sequence in " << m_descriptorsFile
+        cerr << "[ERROR]: The list of image filenames with labels is not a sequence in " << m_descriptorsFile
             << "." << endl << endl;
         return false;
     }
 
-    vector<string> imgFullFilenames;
-    for (FileNodeIterator itNode = imgFileListNode.begin(); itNode != imgFileListNode.end(); ++itNode)
+    vector<pair<string, string> > imgFullFilename2LabelList;
+    for (FileNodeIterator itNode = img2LabelListNode.begin(); itNode != img2LabelListNode.end(); ++itNode)
     {
-        imgFullFilenames.push_back((string)(*itNode));
+        string imgFullFilename = (string)(*itNode++);
+        string imgLabel = (string)(*itNode);
+        imgFullFilename2LabelList.push_back(make_pair(imgFullFilename, imgLabel));
     }
 
-    cout << "[INFO]: Read the filenames of " << imgFullFilenames.size() << " images from "
+    cout << "[INFO]: Read the filenames of " << imgFullFilename2LabelList.size() << " images with their labels from "
         << m_descriptorsFile << "." << endl;
 
     // Load the descriptors with the labels of all the training images.
-    // TODO: Define a struct with the fields name, label, descriptors, and its write function so that
-    // each struct corresponding to one image can be directly read from the file via FileStorage.
-    for (const string& imgFullFilename : imgFullFilenames)
+    int imgIndex = 0;
+    for (const auto& imgFullFilename2Label : imgFullFilename2LabelList)
     {
-        size_t dotPos = imgFullFilename.find_last_of('.');
-        string imgFilename = imgFullFilename.substr(0, dotPos);
+        string imgFullFilename = imgFullFilename2Label.first;
+        string imgLabel = imgFullFilename2Label.second;
 
-        // Get the label key and the descriptors key from the image filename.
-        string labelKey = "label_" + imgFilename;
-        string descriptorsKey = "descriptors_" + imgFilename;
+        string descriptorsKey = "descriptors_" + to_string(imgIndex++);
 
-        ImgDescriptorInfo descInfo;
-        fsDescriptors[labelKey] >> descInfo.label;
-        fsDescriptors[descriptorsKey] >> descInfo.descriptors;
+        Mat descriptors;
+        fsDescriptors[descriptorsKey] >> descriptors;
 
         //cout << "[DEBUG]: image " << imgFullFilename << ": Read the label " << descInfo.label << " and "
         //    << descInfo.descriptors.rows << " descriptors from " << m_descriptorsFile << "." << endl;
 
-        m_img2DescriptorInfoMap.insert(make_pair(imgFullFilename, descInfo));
+        // Since two images with different labels may share the same name, we prefix the key with the image label.
+        m_img2DescriptorsMap.insert(make_pair(imgLabel + "_" + imgFullFilename, descriptors));
     }
 
-    cout << "[INFO]: Read the labels and descriptors of " << imgFullFilenames.size() << " images from "
+    cout << "[INFO]: Read the labels and descriptors of " << imgFullFilename2LabelList.size() << " images from "
         << m_descriptorsFile << "." << endl;
 
     fsDescriptors.release();
@@ -117,19 +127,22 @@ bool SvmClassifierTrainer::ComputeBowDescriptors()
     // A BOW descriptor, a.k.a. a presence vector, is a normalized histogram of vocabulary words
     // encountered in the image. Note that the BOW descriptors are stored in a map with
     // the image label as the key.
-    for (const string& imgFullFilename : imgFullFilenames)
+    for (const auto& imgFullFilename2Label : imgFullFilename2LabelList)
     {
+        string imgFullFilename = imgFullFilename2Label.first;
+        string imgLabel = imgFullFilename2Label.second;
+        string imgMapKey = imgLabel + "_" + imgFullFilename;
+
         Mat bowDescriptor;
-        bowExtractor.compute(m_img2DescriptorInfoMap[imgFullFilename].descriptors, bowDescriptor);
+        bowExtractor.compute(m_img2DescriptorsMap[imgMapKey], bowDescriptor);
 
         //cout << "[DEBUG]: image "  << imgFullFilename << ": Compute the BOW descriptor with "
         //    << bowDescriptor.rows << " rows and " << bowDescriptor.cols << " columns." << endl;
 
-        string imgLabel = m_img2DescriptorInfoMap[imgFullFilename].label;
         auto itMap = m_label2BowDescriptorsMap.find(imgLabel);
         if (itMap == m_label2BowDescriptorsMap.end())
         {
-            m_label2BowDescriptorsMap.insert(make_pair(m_img2DescriptorInfoMap[imgFullFilename].label, bowDescriptor));
+            m_label2BowDescriptorsMap.insert(make_pair(imgLabel, bowDescriptor));
         }
         else
         {
@@ -142,7 +155,7 @@ bool SvmClassifierTrainer::ComputeBowDescriptors()
 
     auto tEnd = Clock::now();
 
-    cout << "[INFO]: Compute the BOW descriptors of " << imgFullFilenames.size() << " images in "
+    cout << "[INFO]: Compute the BOW descriptors of " << imgFullFilename2LabelList.size() << " images in "
         << chrono::duration_cast<chrono::milliseconds>(tEnd - tStart).count()
         << " ms." << endl;
 
@@ -206,10 +219,65 @@ void SvmClassifierTrainer::TrainAndSaveSvms()
         << " ms." << endl;
 }
 
+void SvmClassifierTrainer::TrainAndSaveFlannMatcher()
+{
+    // We assume that each label has only one image.
+    vector<pair<string, string> > trainedImgWithLabels;
+    Utility::GetImagesWithLabels(m_imgBasePath, trainedImgWithLabels);
+    cout << "[INFO]: Computing the SURF descriptors of " << trainedImgWithLabels.size()
+        << " images for training the FLANN-based matcher." << endl;
+
+    Ptr<SurfFeatureDetector> detector = SURF::create(m_surfMinHessian);
+
+    vector<Mat> allImgDescriptors;
+    vector<KeyPoint> oneImgKeypoints;
+    Mat oneImgDescriptors;
+
+    vector<pair<string, string> > trainedImgFilename2LabelList;
+    for (auto& labelledImg : trainedImgWithLabels)
+    {
+        string imgLabel = labelledImg.first;
+        string imgFile = labelledImg.second;
+        string imgFullPath = m_imgBasePath + "/" + imgLabel + "/" + imgFile;
+
+        trainedImgFilename2LabelList.push_back(make_pair(imgFile, imgLabel));
+
+        Mat img = imread(imgFullPath);
+        detector->detectAndCompute(img, noArray(), oneImgKeypoints, oneImgDescriptors);
+
+        allImgDescriptors.push_back(oneImgDescriptors);
+    }
+
+    Ptr<FlannBasedSavableMatcher> flannMatcher = FlannBasedSavableMatcher::create();
+
+    string matcherFileDir;
+    string matcherFilename;
+    Utility::SeparateDirFromFilename(m_matcherFile, matcherFileDir, matcherFilename);
+
+    cout << "[INFO]: Training the FLANN-based matcher with the SURF descriptors of the images." << endl;
+
+    flannMatcher->add(allImgDescriptors);
+
+    auto tTrainStart = Clock::now();
+    flannMatcher->train();
+    auto tTrainEnd = Clock::now();
+    cout << "[INFO]: Trained the FLANN-based matcher in " << chrono::duration_cast<chrono::milliseconds>(tTrainEnd - tTrainStart).count()
+        << " ms." << endl;
+
+    cout << "[INFO]: Saving the trained FLANN-based matcher." << endl;
+
+    flannMatcher->setTrainedImgFilename2LabelList(trainedImgFilename2LabelList);
+    flannMatcher->setFlannIndexFileDir(matcherFileDir);
+    flannMatcher->setFlannIndexFilename(matcherFilename + "_klannindex");
+
+    flannMatcher->save(m_matcherFile);
+}
+
 void SvmClassifierTrainer::Train()
 {
     if(ComputeBowDescriptors())
     {
         TrainAndSaveSvms();
+        TrainAndSaveFlannMatcher();
     }
 }

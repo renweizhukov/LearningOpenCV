@@ -6,7 +6,6 @@
  */
 
 #include "Utility.h"
-#include "FlannBasedSavableMatcher.h"
 #include "VocabularyBuilder.h"
 
 using namespace std;
@@ -24,11 +23,9 @@ VocabularyBuilder::VocabularyBuilder() :
 VocabularyBuilder::VocabularyBuilder(
     const string& imgBasePath,
     const string& descriptorsFile,
-    const string& matcherFilePrefix,
     const string& vocabularyFile) :
     m_imgBasePath(imgBasePath),
     m_descriptorsFile(descriptorsFile),
-    m_matcherFilePrefix(matcherFilePrefix),
     m_vocabularyFile(vocabularyFile),
     m_cntBowClusters(1000), // TODO: Expose m_cntBowClusters and m_surfMinHessian as configurable parameters.
     m_surfMinHessian(400)
@@ -43,12 +40,10 @@ VocabularyBuilder::~VocabularyBuilder()
 void VocabularyBuilder::Reset(
     const string& imgBasePath,
     const string& descriptorsFile,
-    const string& matcherFilePrefix,
     const string& vocabularyFile)
 {
     m_imgBasePath = imgBasePath;
     m_descriptorsFile = descriptorsFile;
-    m_matcherFilePrefix = matcherFilePrefix;
     m_vocabularyFile = vocabularyFile;
 
     m_descriptors.release();
@@ -59,61 +54,45 @@ void VocabularyBuilder::ComputeDescriptors(OutputArray descriptors)
 {
     vector<pair<string, string> > imgWithLabels;
     Utility::GetImagesWithLabels(m_imgBasePath, imgWithLabels);
-    cout << "[INFO]: Computing the SURF descriptors of " << imgWithLabels.size() << " images." << endl;
 
-    Ptr<SurfFeatureDetector> detector = SURF::create(m_surfMinHessian);
-    vector<KeyPoint> imgKeypoints;
-    Mat imgDescriptors;
     FileStorage fs(m_descriptorsFile, FileStorage::WRITE);
 
+    fs << "image_label_list" << "[";
+    for (const auto& labelledImg : imgWithLabels)
+    {
+        // We write the image filename first and then its label.
+        fs << labelledImg.second << labelledImg.first;
+    }
+    fs << "]";  // End of image_label_list
+    cout << "[INFO]: Write the filenames of " << imgWithLabels.size() << " images with their labels to file "
+        << m_descriptorsFile << "." << endl;
+
+    Ptr<SurfFeatureDetector> detector = SURF::create(m_surfMinHessian);
+
+    cout << "[INFO]: Computing the SURF descriptors of " << imgWithLabels.size() << " images." << endl;
     auto tStart = Clock::now();
 
-    vector<string> allImgs;
-    for (auto& labelledImg : imgWithLabels)
+    int imgIndex = 0;
+    for (const auto& labelledImg : imgWithLabels)
     {
-        string label = labelledImg.first;
+        string imgLabel = labelledImg.first;
         string imgFile = labelledImg.second;
-        string imgFullPath = m_imgBasePath + "/" + label + "/" + imgFile;
-
-        allImgs.push_back(imgFile);
+        string imgFullPath = m_imgBasePath + "/" + imgLabel + "/" + imgFile;
 
         Mat img = imread(imgFullPath);
+        vector<KeyPoint> imgKeypoints;
+        Mat imgDescriptors;
+
         detector->detectAndCompute(img, noArray(), imgKeypoints, imgDescriptors);
 
-        // For OpenCV FileStorage, key names may only contain alphanumeric characters [a-zA-Z0-9],
-        // '-', '_' and ' '. Unfortunately key names may not contain '.'.
-        size_t dotPos = imgFile.find_last_of('.');
-        string imgFilename = imgFile.substr(0, dotPos);
-        string imgFileExtension = imgFile.substr(dotPos + 1);
-
         // Key names must start with a letter or '_'. Since the image filename may start with a non-letter,
-        // e.g., a digit, we have to put it after those prefixes.
-        // TODO: Define a struct with the fields name, label, descriptors, and its write function so that
-        // each struct corresponding to one image can be directly written into the file via FileStorage.
-        fs << "name_" + imgFilename << imgFile;
-        fs << string("label_" + imgFilename) << label;
-        fs << string("descriptors_" + imgFilename) << imgDescriptors;
+        // e.g., a digit, we have to prefix the key name with "descriptors_".
+        fs << "descriptors_" + to_string(imgIndex++) << imgDescriptors;
         cout << "[INFO]: Write " << imgDescriptors.rows << " descriptors of image " << imgFile
-            << " with label " << label << " to file " << m_descriptorsFile << "." << endl;
+            << " with label " << imgLabel << " to file " << m_descriptorsFile << "." << endl;
 
         // A big Mat of descriptors without labels will be the input for building the vocabulary.
         m_descriptors.push_back(imgDescriptors);
-
-        // A label-to-Mat-vector map will be the input for training the knn matchers.
-        auto itLabelledDescriptors = m_labelledDescriptorInfoMap.find(label);
-        if (itLabelledDescriptors == m_labelledDescriptorInfoMap.end())
-        {
-            LabelledDescriptorInfo descriptorInfo;
-            descriptorInfo.filenameList.push_back(imgFile);
-            descriptorInfo.descriptors.push_back(imgDescriptors);
-
-            m_labelledDescriptorInfoMap.insert(make_pair(label, descriptorInfo));
-        }
-        else
-        {
-            itLabelledDescriptors->second.filenameList.push_back(imgFile);
-            itLabelledDescriptors->second.descriptors.push_back(imgDescriptors);
-        }
     }
 
     auto tEnd = Clock::now();
@@ -121,47 +100,12 @@ void VocabularyBuilder::ComputeDescriptors(OutputArray descriptors)
         << chrono::duration_cast<chrono::milliseconds>(tEnd - tStart).count()
         << " ms." << endl;
 
-    fs << "imagefile_list" << allImgs;
-    cout << "[INFO]: Write the filenames of " << allImgs.size() << " images to file "
-        << m_descriptorsFile << "." << endl;
-
     fs.release();
 
     if (descriptors.needed())
     {
         m_descriptors.copyTo(descriptors);
     }
-}
-
-void VocabularyBuilder::SaveKnnMatchers()
-{
-    string matcherFileDir;
-    string matcherFilenamePrefix;
-    Utility::SeparateDirFromFilename(m_matcherFilePrefix, matcherFileDir, matcherFilenamePrefix);
-
-    auto tStart = Clock::now();
-
-    for (const auto& descriptorInfo : m_labelledDescriptorInfoMap)
-    {
-        // Create the FLANN-based matcher.
-        Ptr<FlannBasedSavableMatcher> matcher = FlannBasedSavableMatcher::create();
-
-        // Add the descriptors of one label to the matcher and train the matcher.
-        matcher->add(descriptorInfo.second.descriptors);
-        matcher->train();
-
-        // Save the trained FLANN-based matcher.
-        matcher->setTrainedImgFilenameList(descriptorInfo.second.filenameList);
-        matcher->setFlannIndexFileDir(matcherFileDir);
-        matcher->setFlannIndexFilename(matcherFilenamePrefix + '_' + descriptorInfo.first + "_klannindex");
-
-        matcher->save(m_matcherFilePrefix + '_' + descriptorInfo.first + ".yml");
-    }
-
-    auto tEnd = Clock::now();
-    cout << "[INFO]: Train and save the FLANN-based matcher in "
-        << chrono::duration_cast<chrono::milliseconds>(tEnd - tStart).count()
-        << " ms." << endl;
 }
 
 void VocabularyBuilder::BuildVocabulary(OutputArray vocabulary)

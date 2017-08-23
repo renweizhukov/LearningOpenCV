@@ -142,15 +142,16 @@ private:
 
     std::string m_vocabularyFile;
     std::string m_classifierFilePrefix;
-    std::string m_matcherFilePrefix;
+    std::string m_matcherFile;
     std::string m_resultFile;
 
     std::map<std::string, cv::Mat> m_img2SurfDescriptorMap;
     std::map<std::string, cv::Mat> m_img2BowDescriptorMap;
     std::map<std::string, ClassifierResult> m_img2ClassifierResultMap;
     std::map<std::string, cv::Ptr<cv::ml::SVM> > m_class2SvmMap;
-    std::map<std::string, cv::Ptr<cv::FlannBasedSavableMatcher> > m_class2FlannMatcherMap;
+    std::vector<std::pair<std::string, std::string> > m_matcherTrainedImg2LabelList;
 
+    cv::Ptr<cv::FlannBasedSavableMatcher> m_flannMatcher;
     cv::Ptr<cv::xfeatures2d::SurfFeatureDetector> m_detector;
     cv::Ptr<cv::DescriptorMatcher> m_descMatcher;
     cv::Ptr<cv::BOWImgDescriptorExtractor> m_bowExtractor;
@@ -163,9 +164,8 @@ private:
     bool EvaluateOneImgInternal(
         const std::string& img2ClassifierResultMapKey,
         const cv::Mat& img);
-    std::pair<std::string, float> FlannBasedMatching(
-        const std::string& img2ClassifierResultMapKey,
-        const std::vector<std::pair<std::string, float> > matchCandidates);
+    std::pair<std::string, float> FlannBasedKnnMatch(
+        const std::string& img2ClassifierResultMapKey);
 
     void WriteResultsToFile();
 
@@ -174,7 +174,7 @@ public:
     SvmClassifierTester(
         const std::string& vocabularyFile,
         const std::string& classifierFilePrefix,
-        const std::string& matcherFilePrefix,
+        const std::string& matcherFile,
         const std::string& resultFile);
     ~SvmClassifierTester();
 
@@ -182,12 +182,12 @@ public:
 
     bool InitSvmClassifiers();
 
-    bool InitFlannBasedMatchers();
+    bool InitFlannBasedMatcher();
 
     void Reset(
         const std::string& vocabularyFile,
         const std::string& classifierFilePrefix,
-        const std::string& matcherFilePrefix,
+        const std::string& matcherFile,
         const std::string& resultFile);
 
     void EvaluateOneImg(

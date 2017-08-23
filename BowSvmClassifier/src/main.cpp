@@ -32,8 +32,8 @@ int main(int argc, char** argv)
         ("descriptors,e", po::value<string>(), "The yml file which stores the descriptors of all the training images. It is an output for vocabulary building and an input for classifier training")
         ("expected-class,c", po::value<string>(), "The expected class of the test image which will be compared with the class evaluated by the SVM classifiers")
         ("image,i", po::value<string>(), "The image file which will be used for testing")
-        ("image-dir,d", po::value<string>(), "The directory of images which will be used for vocabulary building or classifier training or testing")
-        ("matcher-prefix,m", po::value<string>(), "The common name prefix (including the directory name) of the files which store the trained knn-matchers. It is an output for vocabulary building and an input for classifier testing")
+        ("image-dir,d", po::value<string>(), "The directory of images which will be used for vocabulary building or matcher training or classifier testing")
+        ("matcher-file,m", po::value<string>(), "The file which stores the trained FLANN-based matcher. It is an output for matcher training and an input for classifier testing")
         ("result,r", po::value<string>(), "The output file which will store the testing results")
         ("vocabulary,v", po::value<string>(), "The yml file which stores the vocabulary. It is an output for vocabulary building and an input for classifier training and testing");
 
@@ -64,7 +64,7 @@ int main(int argc, char** argv)
     string expectedClass;
     string imgDir;
     string imgFile;
-    string matcherPrefix;
+    string matcherFile;
     string resultFile;
     string vocabularyFile;
 
@@ -88,12 +88,6 @@ int main(int argc, char** argv)
             return -1;
         }
 
-        if (vm.count("matcher-prefix") == 0)
-        {
-            cerr << "[ERROR]: A common filename prefix (including the directory name) is required to be given for storing the trained matchers." << endl << endl;
-            return -1;
-        }
-
         if (vm.count("vocabulary") == 0)
         {
             cerr << "[ERROR]: A vocabulary yml file is required to be given for storing the vocabulary result." << endl << endl;
@@ -102,13 +96,11 @@ int main(int argc, char** argv)
 
         descriptorsFile = vm["descriptors"].as<string>();
         imgDir = vm["image-dir"].as<string>();
-        matcherPrefix = vm["matcher-prefix"].as<string>();
         vocabularyFile = vm["vocabulary"].as<string>();
-        VocabularyBuilder builder(imgDir, descriptorsFile, matcherPrefix, vocabularyFile);
+        VocabularyBuilder builder(imgDir, descriptorsFile, vocabularyFile);
 
         // We don't need the output descriptors and vocabulary, so we pass noArray() here.
         builder.ComputeDescriptors(noArray());
-        builder.SaveKnnMatchers();
         builder.BuildVocabulary(noArray());
     }
     else if (cmd == "train")
@@ -127,6 +119,18 @@ int main(int argc, char** argv)
             return -1;
         }
 
+        if (vm.count("image-dir") == 0)
+        {
+            cerr << "[ERROR]: An image base path is required to be given for training the FLANN-based matcher." << endl << endl;
+            return -1;
+        }
+
+        if (vm.count("matcher-file") == 0)
+        {
+            cerr << "[ERROR]: A yml file is required to be given for storing the trained FLANN-based matcher." << endl << endl;
+            return -1;
+        }
+
         if (vm.count("vocabulary") == 0)
         {
             cerr << "[ERROR]: A yml file is required to be given for loading the vocabulary." << endl << endl;
@@ -135,9 +139,11 @@ int main(int argc, char** argv)
 
         classifierPrefix = vm["classifier-prefix"].as<string>();
         descriptorsFile = vm["descriptors"].as<string>();
+        imgDir = vm["image-dir"].as<string>();
+        matcherFile = vm["matcher-file"].as<string>();
         vocabularyFile = vm["vocabulary"].as<string>();
 
-        SvmClassifierTrainer svmTrainer(vocabularyFile, descriptorsFile, classifierPrefix);
+        SvmClassifierTrainer svmTrainer(vocabularyFile, descriptorsFile, imgDir, matcherFile, classifierPrefix);
         svmTrainer.Train();
     }
     else if (cmd == "test")
@@ -162,9 +168,9 @@ int main(int argc, char** argv)
             return -1;
         }
 
-        if (vm.count("matcher-prefix") == 0)
+        if (vm.count("matcher-file") == 0)
         {
-            cerr << "[ERROR]: A common filename prefix (including the directory name) is required to be given for loading the trained matchers." << endl << endl;
+            cerr << "[ERROR]: A matcher file is required to be given for loading the trained FLANN-based matcher." << endl << endl;
             return -1;
         }
 
@@ -181,11 +187,11 @@ int main(int argc, char** argv)
         }
 
         classifierPrefix = vm["classifier-prefix"].as<string>();
-        matcherPrefix = vm["matcher-prefix"].as<string>();
+        matcherFile = vm["matcher-file"].as<string>();
         resultFile = vm["result"].as<string>();
         vocabularyFile = vm["vocabulary"].as<string>();
 
-        SvmClassifierTester svmTester(vocabularyFile, classifierPrefix, matcherPrefix, resultFile);
+        SvmClassifierTester svmTester(vocabularyFile, classifierPrefix, matcherFile, resultFile);
         if (!svmTester.InitBowImgDescriptorExtractor())
         {
             cerr << "[ERROR]: Failed to initialize the BOWImgDescriptorExtractor from the vocabulary file " << vocabularyFile << "." << endl << endl;
@@ -198,9 +204,9 @@ int main(int argc, char** argv)
             return -1;
         }
 
-        if (!svmTester.InitFlannBasedMatchers())
+        if (!svmTester.InitFlannBasedMatcher())
         {
-            cerr << "[ERROR]: Failed to initialize the FLANN-based matchers from the matcher prefix " << matcherPrefix << "." << endl << endl;
+            cerr << "[ERROR]: Failed to initialize the FLANN-based matcher from the matcher file " << matcherFile << "." << endl << endl;
             return -1;
         }
 

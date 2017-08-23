@@ -19,7 +19,7 @@ namespace cv
 class FlannBasedSavableMatcher : public FlannBasedMatcher
 {
 private:
-    std::vector<std::string> trainedImgFilenameList;
+    std::vector<std::pair<std::string, std::string> > trainedImgFilename2LabelList;
     std::string flannIndexFileDir;
     std::string flannIndexFilename;
 
@@ -27,8 +27,8 @@ public:
     FlannBasedSavableMatcher();
     virtual ~FlannBasedSavableMatcher();
 
-    std::vector<std::string> getTrainedImgFilenameList();
-    void setTrainedImgFilenameList(const std::vector<std::string>& imgFilenameList);
+    std::vector<std::pair<std::string, std::string> > getTrainedImgFilename2LabelList();
+    void setTrainedImgFilename2LabelList(const std::vector<std::pair<std::string, std::string> >& imgFilename2LabelList);
     void setFlannIndexFileDir(const std::string& dir);
     void setFlannIndexFilename(const std::string& filename);
 
