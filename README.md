@@ -384,7 +384,7 @@ $ ./FlannKnnSavableMatching1toN match -i [image-file] -m [matcher-yml-file]
 
 ## 19. FlannKnnSavableMatchingM2N
 
-This executable extends FlannKnnSavableMatching1toN such that it can do the SURF matching of multiple images in a single "match" command. It can also write detailed match results into a yml file. Note that the labelled training images need to be stored in the following hierachical tree:
+This executable extends FlannKnnSavableMatching1toN such that it can do the SURF knnMatching of multiple images in a single "match" command. It can also write detailed match results into a yml file. Note that the labelled training images need to be stored in the following hierachical tree:
 
 ```
 train-images
@@ -395,6 +395,8 @@ train-images
 └── label3
     └── image31 
 ```
+
+For version 1.0, we do only one knnMatching between the query image and all the training images. For version 1.1, if the good match percentage of the first knnMatching is marginally low, we will do second pairwise knnMatching between the query image and the best matched training image; otherwise, we still do only one knnMatching as for version 1.0.
 
 To get the help info,
 
