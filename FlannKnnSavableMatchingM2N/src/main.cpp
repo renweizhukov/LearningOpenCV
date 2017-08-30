@@ -30,10 +30,9 @@ struct FnnMatchResult
 {
     string expectedLabel;
     string evaluatedLabel;
-    string candidateLabel;
-    float overallGoodMatchPercent;
-    int overallGoodMatchCnt;
-    float pairwiseGoodMatchPercent;
+    float maxGoodMatchPercentTest;
+    float maxGoodMatchPercentTraining;
+    int maxGoodMatchCnt;
 
     FnnMatchResult()
     {
@@ -44,10 +43,9 @@ struct FnnMatchResult
     {
         fs << "{" << "expectedLabel" << expectedLabel;
         fs << "evaluatedLabel" << evaluatedLabel;
-        fs << "candidateLabel" << candidateLabel;
-        fs << "overallGoodMatchPercent" << overallGoodMatchPercent;
-        fs << "overallGoodMatchCnt" << overallGoodMatchCnt;
-        fs << "pairwiseGoodMatchPercent" << pairwiseGoodMatchPercent << "}";
+        fs << "maxGoodMatchPercentTest" << maxGoodMatchPercentTest;
+        fs << "maxGoodMatchPercentTraining" << maxGoodMatchPercentTraining;
+        fs << "maxGoodMatchCnt" << maxGoodMatchCnt << "}";
     }
 
     // Read de-serialization for this class
@@ -55,10 +53,9 @@ struct FnnMatchResult
     {
         expectedLabel = (std::string)(node["expectedLabel"]);
         evaluatedLabel = (std::string)(node["evaluatedLabel"]);
-        candidateLabel = (std::string)(node["candidateLabel"]);
-        overallGoodMatchPercent = (float)(node["overallGoodMatchPercent"]);
-        overallGoodMatchCnt = (int)(node["overallGoodMatchCnt"]);
-        pairwiseGoodMatchPercent = (float)(node["pairwiseGoodMatchPercent"]);
+        maxGoodMatchPercentTest = (float)(node["maxGoodMatchPercentTest"]);
+        maxGoodMatchPercentTraining = (float)(node["maxGoodMatchPercentTraining"]);
+        maxGoodMatchCnt = (int)(node["maxGoodMatchCnt"]);
     }
 };
 
@@ -108,106 +105,96 @@ void FlannBasedKnnMatch(
     const string& imgMapKey,
     FnnMatchResult& result)
 {
-    const float overallGoodMatchPercentUpperThreshold = 7.5;
-    const float overallGoodMatchPercentLowerThreshold = overallGoodMatchPercentUpperThreshold/3;
-    const int overallGoodMatchCntThreshold = 10;
+    const float goodMatchPercentThreshold = 14.999;
+    const int goodMatchCntThreshold = 5;
 
     string evaluatedLabel("unknown");
-    string candidateLabel("unknown");
-    float overallGoodMatchPercent = 0.0;
-    int overallGoodMatchCnt = 0;
-    float pairwiseGoodMatchPercent = 0.0;
 
-    vector<vector<DMatch>> overallKnnMatches;
-    flannMatcher->knnMatch(imgDescriptors, overallKnnMatches, 2);
+    vector<vector<DMatch>> knnMatches;
+    flannMatcher->knnMatch(imgDescriptors, knnMatches, 2);
 
-    vector<int> overallMatchCnts(matcherTrainedImg2LabelList.size());
-    vector<int> overallGoodMatchCnts(matcherTrainedImg2LabelList.size());
-    for (const auto& knnMatchPair: overallKnnMatches)
+    vector<int> goodMatchCnts(matcherTrainedImg2LabelList.size());
+    for (const auto& knnMatchPair: knnMatches)
     {
-        if (knnMatchPair.size() > 1 && knnMatchPair[0].distance < 0.75 * knnMatchPair[1].distance)
+        if (knnMatchPair.size() > 1 && knnMatchPair[0].distance < 0.8 * knnMatchPair[1].distance)
         {
-            overallGoodMatchCnts[knnMatchPair[0].imgIdx]++;
-        }
-
-        if (!knnMatchPair.empty())
-        {
-            overallMatchCnts[knnMatchPair[0].imgIdx]++;
+            goodMatchCnts[knnMatchPair[0].imgIdx]++;
         }
     }
 
-    auto bestOverallMatchImageIt = max_element(overallGoodMatchCnts.begin(), overallGoodMatchCnts.end());
-    int bestOverallMatchImageIndex = distance(overallGoodMatchCnts.begin(), bestOverallMatchImageIt);
+    vector<Mat> allTrainedDescriptors = flannMatcher->getTrainDescriptors();
 
-    candidateLabel = matcherTrainedImg2LabelList[bestOverallMatchImageIndex].second;
-    overallGoodMatchCnt = *bestOverallMatchImageIt;
-    overallGoodMatchPercent = 100.0*overallGoodMatchCnt/(imgDescriptors.rows);
-
-    if (overallGoodMatchCnt >= overallGoodMatchCntThreshold)
+    float maxGoodMatchPercentTest = 0.0;
+    float maxGoodMatchPercentTraining = 0.0;
+    int maxGoodMatchCntTest = 0;
+    int maxGoodMatchCntTraining = 0;
+    int bestMatchImageIndexTest = -1;
+    int bestMatchImageIndexTraining = -1;
+    for (int imgIndex = 0; imgIndex < static_cast<int>(allTrainedDescriptors.size()); ++imgIndex)
     {
-        if (overallGoodMatchPercent >= overallGoodMatchPercentUpperThreshold)
+        // If the good match count is too small, simply drop it.
+        if (goodMatchCnts[imgIndex] <= goodMatchCntThreshold)
         {
-            evaluatedLabel = candidateLabel;
-            cout << "[INFO]: The maximum overall match percentage " << overallGoodMatchPercent << "% of " << imgMapKey
-                << " is above the upper threshold " << overallGoodMatchPercentUpperThreshold << "%, so evaluate the class as "
-                << evaluatedLabel << "." << endl;
+            continue;
         }
-        else if (overallGoodMatchPercent >= overallGoodMatchPercentLowerThreshold)
+
+        // The denominator of this good match percentage is the number of the descriptors of the test image.
+        float goodMatchPercentTest = 0.0;
+        if (imgDescriptors.rows > 0)
         {
-            // The overall good match percentage is marginally low, i.e., between the lower threshold and the upper threshold.
-            // In this case, we do a pairwise knnMatch between the query image and the best overall match to see if the pairwise
-            // good match percentage is greater than or equal to the upper threshold. Since the descriptors of images other than
-            // the best overall match are excluded in the pairwise knnMatch, it usually yields a greater good match percentage.
-
-            vector<Mat> allTrainedDescriptors = flannMatcher->getTrainDescriptors();
-            Mat candidateImgDescriptors = allTrainedDescriptors[bestOverallMatchImageIndex];
-
-            vector<vector<DMatch> > knnMatches;
-            flannMatcher->knnMatch(imgDescriptors, candidateImgDescriptors, knnMatches, 2);
-            int pairwiseGoodMatchCnt = 0;
-            for (const auto& knnMatchPair : knnMatches)
-            {
-                if (knnMatchPair.size() > 1 && knnMatchPair[0].distance < 0.75 * knnMatchPair[1].distance)
-                {
-                    ++pairwiseGoodMatchCnt;
-                }
-            }
-
-            pairwiseGoodMatchPercent = 100.0*pairwiseGoodMatchCnt/(imgDescriptors.rows);
-            if (pairwiseGoodMatchPercent >= overallGoodMatchPercentUpperThreshold)
-            {
-                evaluatedLabel = candidateLabel;
-                cout << "[INFO]: Although the maximum overall match percentage " << overallGoodMatchPercent << "% of " << imgMapKey
-                << " is below the upper threshold " << overallGoodMatchPercentUpperThreshold << "%, the 1-to-1 match percentage "
-                << pairwiseGoodMatchPercent << " is above the threshold " << overallGoodMatchPercentUpperThreshold << ", so evaluate the class as"
-                << evaluatedLabel << "." << endl;
-            }
-            else
-            {
-                cout << "[INFO]: Both the maximum overall match percentage " << overallGoodMatchPercent << "% and the 1-to-1 match percentage "
-                    << pairwiseGoodMatchPercent << "% of " << imgMapKey << " is below the upper threshold "
-                    << overallGoodMatchPercentUpperThreshold << "%, so evaluate the class as unknown." << endl;
-            }
+            goodMatchPercentTest = 100.0*goodMatchCnts[imgIndex]/(imgDescriptors.rows);
         }
-        else
+
+        // The denominator of this good match percentage is the number of the descriptors of the training image.
+        float goodMatchPercentTraining = 0.0;
+        if (allTrainedDescriptors[imgIndex].rows > 0)
         {
-            cout << "[INFO]: The maximum overall match percentage " << overallGoodMatchPercent << "% of " << imgMapKey
-                << " is below the lower threshold " << overallGoodMatchPercentLowerThreshold << "%, so evaluate the class as unknown." << endl;
+            goodMatchPercentTraining = 100.0*goodMatchCnts[imgIndex]/(allTrainedDescriptors[imgIndex].rows);
         }
+
+        if ((goodMatchPercentTest > goodMatchPercentThreshold) &&
+            (maxGoodMatchPercentTest < goodMatchPercentTest))
+        {
+            maxGoodMatchPercentTest = goodMatchPercentTest;
+            maxGoodMatchCntTest = goodMatchCnts[imgIndex];
+            bestMatchImageIndexTest = imgIndex;
+        }
+
+        if ((goodMatchPercentTraining > goodMatchPercentThreshold) &&
+            (maxGoodMatchPercentTraining < goodMatchPercentTraining))
+        {
+            maxGoodMatchPercentTraining = goodMatchPercentTraining;
+            maxGoodMatchCntTraining = goodMatchCnts[imgIndex];
+            bestMatchImageIndexTraining = imgIndex;
+        }
+    }
+
+    // Set the maximum good match percentage to the larger one of the above two percentages.
+    int maxGoodMatchCnt = maxGoodMatchCntTest;
+    int bestMatchImageIndex = bestMatchImageIndexTest;
+    if (maxGoodMatchPercentTest < maxGoodMatchPercentTraining)
+    {
+        maxGoodMatchCnt = maxGoodMatchCntTraining;
+        bestMatchImageIndex = bestMatchImageIndexTraining;
+    }
+
+    if (bestMatchImageIndex != -1)
+    {
+        evaluatedLabel = matcherTrainedImg2LabelList[bestMatchImageIndex].second;
+        cout << "[INFO]: The maximum good match percentage " << max(maxGoodMatchPercentTest, maxGoodMatchPercentTraining) << "% > "
+                << goodMatchPercentThreshold << "% and the maximum good match count " << maxGoodMatchCnt << " > " << goodMatchCntThreshold
+                << ", so evaluate the class as " << evaluatedLabel << "." << endl;
     }
     else
     {
-        // The number of overall good matches is too small, and it implies that the query image has few descriptors,
-        // possibly a blank page.
-        cout << "[INFO]: The maximum overall match count " << overallGoodMatchCnt << "% of " << imgMapKey
-            << " is below the threshold " << overallGoodMatchCntThreshold << ", so evaluate the class as unknown." << endl;
+        cout << "[INFO]: Either The maximum good match count < " << goodMatchCntThreshold << " or the maximum good match percentage < "
+            << goodMatchPercentThreshold << "%, so evaluate the class as unknown." << endl;
     }
 
     result.evaluatedLabel = evaluatedLabel;
-    result.candidateLabel = candidateLabel;
-    result.overallGoodMatchPercent = overallGoodMatchPercent;
-    result.overallGoodMatchCnt = overallGoodMatchCnt;
-    result.pairwiseGoodMatchPercent = pairwiseGoodMatchPercent;
+    result.maxGoodMatchPercentTest = maxGoodMatchPercentTest;
+    result.maxGoodMatchPercentTraining = maxGoodMatchPercentTraining;
+    result.maxGoodMatchCnt = maxGoodMatchCnt;
 }
 
 void WriteResultsToFile(
@@ -227,9 +214,10 @@ void WriteResultsToFile(
         }
 
         cout << "[INFO]: " << img2Result.first << ": expected label = " << img2Result.second.expectedLabel
-            << ", evaluated label = " << img2Result.second.evaluatedLabel << ", candidate label = "
-            << img2Result.second.candidateLabel << " with matchPercent = " << img2Result.second.overallGoodMatchPercent
-            << "% and matchCnt = " << img2Result.second.overallGoodMatchCnt << "." << endl;
+            << ", evaluated label = " << img2Result.second.evaluatedLabel << ", maxGoodMatchPercentTest = "
+            << img2Result.second.maxGoodMatchPercentTest << "%, maxGoodMatchPercentTraining = "
+            << img2Result.second.maxGoodMatchPercentTraining << "% and maxGoodMatchCnt = "
+            << img2Result.second.maxGoodMatchCnt << "." << endl;
     }
 
     cout << "===============================================================================================" << endl;
@@ -418,10 +406,9 @@ int main(int argc, char** argv)
             FnnMatchResult res;
             res.expectedLabel = expectedLabel;
             res.evaluatedLabel = "unknown";
-            res.candidateLabel = "unknown";
-            res.overallGoodMatchPercent = 0.0;
-            res.overallGoodMatchCnt = 0;
-            res.pairwiseGoodMatchPercent = 0.0;
+            res.maxGoodMatchPercentTest = 0.0;
+            res.maxGoodMatchPercentTraining = 0.0;
+            res.maxGoodMatchCnt = 0;
             img2ResultMap.insert(make_pair(imgMapKey, res));
         }
         else
@@ -445,9 +432,9 @@ int main(int argc, char** argv)
                 FnnMatchResult res;
                 res.expectedLabel = imgLabel;
                 res.evaluatedLabel = "unknown";
-                res.overallGoodMatchPercent = 0.0;
-                res.overallGoodMatchCnt = 0;
-                res.pairwiseGoodMatchPercent = 0.0;
+                res.maxGoodMatchPercentTest = 0.0;
+                res.maxGoodMatchPercentTraining = 0.0;
+                res.maxGoodMatchCnt = 0;
                 img2ResultMap.insert(make_pair(imgMapKey, res));
             }
         }

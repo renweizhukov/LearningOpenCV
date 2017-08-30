@@ -396,7 +396,9 @@ train-images
     └── image31 
 ```
 
-For version 1.0, we do only one knnMatching between the query image and all the training images. For version 1.1, if the good match percentage of the first knnMatching is marginally low, we will do second pairwise knnMatching between the query image and the best matched training image; otherwise, we still do only one knnMatching as for version 1.0.
+* For version 1.0, we do only one knnMatching between the query image and all the training images. 
+* For version 1.1, if the good match percentage of the first knnMatching is marginally low, we will do second pairwise knnMatching between the query image and the best matched training image; otherwise, we still do only one knnMatching as for version 1.0.
+* For version 1.2, we revert to one knnMatching between the query image and all the training images, but calculate two good match percentages per each query-training image pair and adopt a slightly more complicated criterion for determining the best matched training image.
 
 To get the help info,
 
