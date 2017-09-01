@@ -105,8 +105,8 @@ void FlannBasedKnnMatch(
     const string& imgMapKey,
     FnnMatchResult& result)
 {
-    const float goodMatchPercentThreshold = 14.999;
-    const int goodMatchCntThreshold = 5;
+    const float goodMatchPercentThreshold = 4.499;
+    const int goodMatchCntThreshold = 10;
 
     string evaluatedLabel("unknown");
 

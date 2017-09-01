@@ -188,13 +188,13 @@ int main(int argc, char** argv)
         cout << "[DEBUG]: Did the KNN match in " << chrono::duration_cast<chrono::milliseconds>(tMatchEnd - tMatchStart).count()
             << " ms." << endl;
 
-        // Find only "good" matches among the closest matches, i.e., whose distance is much better (<0.75) than
+        // Find only "good" matches among the closest matches, i.e., whose distance is much better (<0.8) than
         // the corresponding second closest match.
         vector<DMatch> allGoodMatches;
         vector<int> goodMatchCnts(trainedImgFilenameList.size());
         for (auto& knnMatchPair: allKnnMatches)
         {
-            if (knnMatchPair.size() > 1 && knnMatchPair[0].distance < 0.75 * knnMatchPair[1].distance)
+            if (knnMatchPair.size() > 1 && knnMatchPair[0].distance < 0.8 * knnMatchPair[1].distance)
             {
                 allGoodMatches.push_back(knnMatchPair[0]);
                 goodMatchCnts[knnMatchPair[0].imgIdx]++;

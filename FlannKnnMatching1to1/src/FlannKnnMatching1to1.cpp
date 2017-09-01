@@ -80,12 +80,12 @@ int main(int argc, char** argv)
     printf("The time for the FLANN matching: %ld milliseconds\n",
             chrono::duration_cast<chrono::milliseconds>(tMatchEnd - tDetectAndComputeEnd).count());
 
-    // 3. Find only "good" matches among the closest matches, i.e., whose distance is much better (<0.75) than
+    // 3. Find only "good" matches among the closest matches, i.e., whose distance is much better (<0.8) than
     // the corresponding second closest match.
     vector<DMatch> goodMatches;
     for (auto& knnMatch: knnMatches)
     {
-        if (knnMatch.size() > 1 && knnMatch[0].distance < 0.75 * knnMatch[1].distance)
+        if (knnMatch.size() > 1 && knnMatch[0].distance < 0.8 * knnMatch[1].distance)
         {
             goodMatches.push_back(knnMatch[0]);
         }
