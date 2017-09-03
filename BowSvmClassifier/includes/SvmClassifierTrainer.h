@@ -25,7 +25,7 @@ private:
     std::string m_vocabularyFile;
     std::string m_descriptorsFile;
     std::string m_imgBasePath;
-    std::string m_matcherFile;
+    std::string m_matcherPrefix;
     std::string m_classifierFilePrefix;
 
     int m_surfMinHessian;
@@ -45,7 +45,7 @@ public:
         const std::string& vocabularyFile,
         const std::string& descriptorsFile,
         const std::string& imgBasePath,
-        const std::string& matcherFile,
+        const std::string& matcherPrefix,
         const std::string& classifierFilePrefix);
     ~SvmClassifierTrainer();
 
@@ -53,7 +53,7 @@ public:
         const std::string& vocabularyFile,
         const std::string& descriptorsFile,
         const std::string& imgBasePath,
-        const std::string& matcherFile,
+        const std::string& matcherPrefix,
         const std::string& classifierFilePrefix);
 
     void Train();

@@ -24,12 +24,12 @@ SvmClassifierTrainer::SvmClassifierTrainer(
     const string& vocabularyFile,
     const string& descriptorsFile,
     const std::string& imgBasePath,
-    const std::string& matcherFile,
+    const std::string& matcherPrefix,
     const string& classifierFilePrefix) :
     m_vocabularyFile(vocabularyFile),
     m_descriptorsFile(descriptorsFile),
     m_imgBasePath(imgBasePath),
-    m_matcherFile(matcherFile),
+    m_matcherPrefix(matcherPrefix),
     m_classifierFilePrefix(classifierFilePrefix),
     m_surfMinHessian(400)   // TODO: Expose m_cntBowClusters and m_surfMinHessian as configurable parameters.
 {
@@ -44,13 +44,13 @@ void SvmClassifierTrainer::Reset(
     const std::string& vocabularyFile,
     const std::string& descriptorsFile,
     const std::string& imgBasePath,
-    const std::string& matcherFile,
+    const std::string& matcherPrefix,
     const std::string& classifierFilePrefix)
 {
     m_vocabularyFile = vocabularyFile;
     m_descriptorsFile = descriptorsFile;
     m_imgBasePath = imgBasePath;
-    m_matcherFile = matcherFile;
+    m_matcherPrefix = matcherPrefix;
     m_classifierFilePrefix = classifierFilePrefix;
 
     m_img2DescriptorsMap.clear();
@@ -227,50 +227,47 @@ void SvmClassifierTrainer::TrainAndSaveFlannMatcher()
     cout << "[INFO]: Computing the SURF descriptors of " << trainedImgWithLabels.size()
         << " images for training the FLANN-based matcher." << endl;
 
+    string matcherFileDir;
+    string matcherFilenamePrefix;
+    string matcherFilename;
+    Utility::SeparateDirFromFilename(m_matcherPrefix, matcherFileDir, matcherFilenamePrefix);
+
     Ptr<SurfFeatureDetector> detector = SURF::create(m_surfMinHessian);
-
-    vector<Mat> allImgDescriptors;
-    vector<KeyPoint> oneImgKeypoints;
-    Mat oneImgDescriptors;
-
-    vector<pair<string, string> > trainedImgFilename2LabelList;
     for (auto& labelledImg : trainedImgWithLabels)
     {
         string imgLabel = labelledImg.first;
         string imgFile = labelledImg.second;
         string imgFullPath = m_imgBasePath + "/" + imgLabel + "/" + imgFile;
 
-        trainedImgFilename2LabelList.push_back(make_pair(imgFile, imgLabel));
+        vector<pair<string, string> > trainedImgFilename2LabelList{make_pair(imgFile, imgLabel)};
 
         Mat img = imread(imgFullPath);
+        vector<KeyPoint> oneImgKeypoints;
+        Mat oneImgDescriptors;
         detector->detectAndCompute(img, noArray(), oneImgKeypoints, oneImgDescriptors);
 
-        allImgDescriptors.push_back(oneImgDescriptors);
+        Ptr<FlannBasedSavableMatcher> flannMatcher = FlannBasedSavableMatcher::create();
+
+        cout << "[INFO]: Training the FLANN-based matcher with the SURF descriptors of the images with label "
+            << imgLabel << "." << endl;
+
+        flannMatcher->add(vector<Mat>{oneImgDescriptors});
+
+        auto tTrainStart = Clock::now();
+        flannMatcher->train();
+        auto tTrainEnd = Clock::now();
+        cout << "[INFO]: Trained the FLANN-based matcher for label " << imgLabel << " in "
+            << chrono::duration_cast<chrono::milliseconds>(tTrainEnd - tTrainStart).count() << " ms." << endl;
+
+        cout << "[INFO]: Saving the trained FLANN-based matcher for label " << imgLabel << "." << endl;
+
+        matcherFilename = matcherFilenamePrefix + "_" + imgLabel;
+        flannMatcher->setTrainedImgFilename2LabelList(trainedImgFilename2LabelList);
+        flannMatcher->setFlannIndexFileDir(matcherFileDir);
+        flannMatcher->setFlannIndexFilename(matcherFilename + "_klannindex");
+
+        flannMatcher->save(matcherFileDir + matcherFilename + ".yml");
     }
-
-    Ptr<FlannBasedSavableMatcher> flannMatcher = FlannBasedSavableMatcher::create();
-
-    string matcherFileDir;
-    string matcherFilename;
-    Utility::SeparateDirFromFilename(m_matcherFile, matcherFileDir, matcherFilename);
-
-    cout << "[INFO]: Training the FLANN-based matcher with the SURF descriptors of the images." << endl;
-
-    flannMatcher->add(allImgDescriptors);
-
-    auto tTrainStart = Clock::now();
-    flannMatcher->train();
-    auto tTrainEnd = Clock::now();
-    cout << "[INFO]: Trained the FLANN-based matcher in " << chrono::duration_cast<chrono::milliseconds>(tTrainEnd - tTrainStart).count()
-        << " ms." << endl;
-
-    cout << "[INFO]: Saving the trained FLANN-based matcher." << endl;
-
-    flannMatcher->setTrainedImgFilename2LabelList(trainedImgFilename2LabelList);
-    flannMatcher->setFlannIndexFileDir(matcherFileDir);
-    flannMatcher->setFlannIndexFilename(matcherFilename + "_klannindex");
-
-    flannMatcher->save(m_matcherFile);
 }
 
 void SvmClassifierTrainer::Train()
