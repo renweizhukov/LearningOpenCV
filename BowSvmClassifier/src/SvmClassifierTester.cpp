@@ -41,22 +41,23 @@ static void read(
 SvmClassifierTester::SvmClassifierTester():
     m_surfMinHessian(0),
     m_knnMatchCandidateCnt(0),
-    m_goodMatchPercentThreshold(0.0)
+    m_goodMatchPercentThreshold(0.0),
+    m_goodMatchCntThreshold(0)
 {
 }
 
 SvmClassifierTester::SvmClassifierTester(
     const string& vocabularyFile,
     const string& classifierFilePrefix,
-    const string& matcherFile,
+    const string& matcherDescriptorsFile,
     const string& resultFile) :
     m_surfMinHessian(400),  // TODO: Read the value from the vocabulary file.
-    m_knnMatchCandidateCnt(2),
+    m_knnMatchCandidateCnt(5),
     m_goodMatchPercentThreshold(7.5),
     m_goodMatchCntThreshold(10),
     m_vocabularyFile(vocabularyFile),
     m_classifierFilePrefix(classifierFilePrefix),
-    m_matcherFile(matcherFile),
+    m_matcherDescriptorsFile(matcherDescriptorsFile),
     m_resultFile(resultFile)
 {
 
@@ -69,12 +70,12 @@ SvmClassifierTester::~SvmClassifierTester()
 void SvmClassifierTester::Reset(
     const string& vocabularyFile,
     const string& classifierFilePrefix,
-    const string& matcherFile,
+    const string& matcherDescriptorsFile,
     const string& resultFile)
 {
     m_vocabularyFile = vocabularyFile;
     m_classifierFilePrefix = classifierFilePrefix;
-    m_matcherFile = matcherFile;
+    m_matcherDescriptorsFile = matcherDescriptorsFile;
     m_resultFile = resultFile;
 
     m_img2BowDescriptorMap.clear();
@@ -83,7 +84,7 @@ void SvmClassifierTester::Reset(
 
     InitBowImgDescriptorExtractor();
     InitSvmClassifiers();
-    InitFlannBasedMatcher();
+    LoadMatcherDescriptors();
 }
 
 bool SvmClassifierTester::InitBowImgDescriptorExtractor()
@@ -113,13 +114,13 @@ bool SvmClassifierTester::InitBowImgDescriptorExtractor()
 bool SvmClassifierTester::InitSvmClassifiers()
 {
     // Get the base path and the common filename prefix of all the classifier files from m_classifierFilePrefix;
-    size_t slashPos = m_classifierFilePrefix.find_last_of('/');
-    string classifierPath = m_classifierFilePrefix.substr(0, slashPos);
-    string classifierCommonPrefix = m_classifierFilePrefix.substr(slashPos + 1);
+    string classifierDir;
+    string classifierPrefix;
+    Utility::SeparateDirFromFilename(m_classifierFilePrefix, classifierDir, classifierPrefix);
 
-    // Get all the classifier files under classifierPath.
+    // Get all the classifier files under classifierDir.
     vector<string> classifierFiles;
-    Utility::GetFilesWithCommonPrefix(classifierPath, classifierCommonPrefix, classifierFiles);
+    Utility::GetFilesWithCommonPrefix(classifierDir, classifierPrefix, classifierFiles);
 
     // Initialize one 1-vs-all SVM classifier per each class.
     for (const auto& classifierFile : classifierFiles)
@@ -128,7 +129,7 @@ bool SvmClassifierTester::InitSvmClassifiers()
         size_t dotPos = classifierFile.find_last_of('.');
         string className = classifierFile.substr(underscorePos + 1, dotPos - underscorePos - 1);
 
-        string classifierFullFilename = classifierPath + "/" + classifierFile;
+        string classifierFullFilename = classifierDir + "/" + classifierFile;
         Ptr<SVM> svmClassifier = SVM::load(classifierFullFilename);
 
         //cout << "[DEBUG]: SVM classifier for class " << className << ": varCount = " << svmClassifier->getVarCount() << "." << endl;
@@ -139,19 +140,50 @@ bool SvmClassifierTester::InitSvmClassifiers()
     return true;
 }
 
-bool SvmClassifierTester::InitFlannBasedMatcher()
+bool SvmClassifierTester::LoadMatcherDescriptors()
 {
-    string matcherFileDir;
-    string matcherFilename;
-    Utility::SeparateDirFromFilename(m_matcherFile, matcherFileDir, matcherFilename);
+    // Load the filenames of all the training images.
+    FileStorage fsMatcherDescriptors(m_matcherDescriptorsFile, FileStorage::READ);
+    FileNode img2LabelListNode = fsMatcherDescriptors["image_label_list"];
+    if (img2LabelListNode.type() != FileNode::SEQ)
+    {
+        cerr << "[ERROR]: The list of image filenames with labels is not a sequence in " << m_matcherDescriptorsFile
+            << "." << endl << endl;
+        return false;
+    }
 
-    // Load the trained FLANN-based matcher.
-    m_flannMatcher = FlannBasedSavableMatcher::create();
-    m_flannMatcher->setFlannIndexFileDir(matcherFileDir);
+    vector<pair<string, string> > imgFullFilename2LabelList;
+    for (FileNodeIterator itNode = img2LabelListNode.begin(); itNode != img2LabelListNode.end(); ++itNode)
+    {
+        string imgFullFilename = (string)(*itNode++);
+        string imgLabel = (string)(*itNode);
+        imgFullFilename2LabelList.push_back(make_pair(imgFullFilename, imgLabel));
+    }
 
-    FileStorage fs(m_matcherFile, FileStorage::READ);
-    m_flannMatcher->read(fs.getFirstTopLevelNode());
-    m_matcherTrainedImg2LabelList = m_flannMatcher->getTrainedImgFilename2LabelList();
+    cout << "[INFO]: Read the filenames of " << imgFullFilename2LabelList.size() << " images with their labels from "
+        << m_matcherDescriptorsFile << " for the FLANN-based matcher." << endl;
+
+    // Load the descriptors with the labels of the images for the FLANN-based matcher.
+    int imgIndex = 0;
+    for (const auto& imgFullFilename2Label : imgFullFilename2LabelList)
+    {
+        string imgLabel = imgFullFilename2Label.second;
+
+        string descriptorsKey = "descriptors_" + to_string(imgIndex++);
+
+        Mat descriptors;
+        fsMatcherDescriptors[descriptorsKey] >> descriptors;
+
+        //cout << "[DEBUG]: image " << imgFullFilename << ": Read the label " << descInfo.label << " and "
+        //    << descInfo.descriptors.rows << " descriptors from " << m_descriptorsFile << "." << endl;
+
+        m_class2MatcherDescriptorsMap.insert(make_pair(imgLabel, descriptors));
+    }
+
+    cout << "[INFO]: Read the labels and descriptors of " << imgFullFilename2LabelList.size() << " images from "
+        << m_matcherDescriptorsFile << "." << endl;
+
+    fsMatcherDescriptors.release();
 
     return true;
 }
@@ -179,56 +211,89 @@ bool SvmClassifierTester::ComputeSurfAndBowDescriptor(
     return true;
 }
 
-pair<string, float> SvmClassifierTester::FlannBasedKnnMatch(
-    const string& img2ClassifierResultMapKey)
+pair<string, pair<float, int> > SvmClassifierTester::FlannBasedKnnMatch(
+    const string& img2ClassifierResultMapKey,
+    const vector<pair<string, float> >& flannMatchCandidates)
 {
-    pair<string, float> maxClassMatchPercent;
-    maxClassMatchPercent.first = "unknown";
-    maxClassMatchPercent.second = 0.0;
+    string bestMatchClass;
+    float bestMatchPercent = 0.0;
+    int bestMatchCnt = 0;
 
     auto itSurfDescriptors = m_img2SurfDescriptorMap.find(img2ClassifierResultMapKey);
     if (itSurfDescriptors == m_img2SurfDescriptorMap.end())
     {
         cerr << "[ERROR]: Can't find the SURF descriptors of " << img2ClassifierResultMapKey << "." << endl << endl;
-        return maxClassMatchPercent;
+        return make_pair(bestMatchClass, make_pair(bestMatchPercent, bestMatchCnt));
     }
 
     Mat surfDescriptors = itSurfDescriptors->second;
-    vector<vector<DMatch>> allKnnMatches;
+
+    vector<string> candidateClassNames;
+    vector<Mat> allCandidateDescriptors;
+    for (const auto& candidate : flannMatchCandidates)
+    {
+        string className = candidate.first;
+        candidateClassNames.push_back(className);
+        allCandidateDescriptors.push_back(m_class2MatcherDescriptorsMap[className]);
+    }
+
+    Ptr<FlannBasedMatcher> flannMatcher = FlannBasedMatcher::create();
+
+    vector<vector<DMatch>> knnMatches;
 
     auto tStart = Clock::now();
-    m_flannMatcher->knnMatch(surfDescriptors, allKnnMatches, 2);
+    flannMatcher->knnMatch(surfDescriptors, allCandidateDescriptors, knnMatches, 2);
     auto tEnd = Clock::now();
     cout << "[INFO]: Do the FLANN-based knnMatch of " << img2ClassifierResultMapKey << " in "
         << chrono::duration_cast<chrono::milliseconds>(tEnd - tStart).count() << " ms." << endl;
 
-    vector<int> matchCnts(m_matcherTrainedImg2LabelList.size());
-    vector<int> goodMatchCnts(m_matcherTrainedImg2LabelList.size());
-    for (const auto& knnMatchPair: allKnnMatches)
+    vector<int> candidateGoodMatchCnts(flannMatchCandidates.size());
+    for (const auto& knnMatchPair: knnMatches)
     {
-        if (knnMatchPair.size() > 1 && knnMatchPair[0].distance < 0.75 * knnMatchPair[1].distance)
+        if (knnMatchPair.size() > 1 && knnMatchPair[0].distance < 0.8 * knnMatchPair[1].distance)
         {
-            goodMatchCnts[knnMatchPair[0].imgIdx]++;
-        }
-
-        if (!knnMatchPair.empty())
-        {
-            matchCnts[knnMatchPair[0].imgIdx]++;
+            ++candidateGoodMatchCnts[knnMatchPair[0].imgIdx];
         }
     }
 
-    auto bestMatchImageIt = max_element(goodMatchCnts.begin(), goodMatchCnts.end());
-    int bestMatchImageIndex = distance(goodMatchCnts.begin(), bestMatchImageIt);
+    vector<pair<float, float> > candidateGoodMatchPercentages(flannMatchCandidates.size());
+    for (int canIndex = 0; canIndex < static_cast<int>(flannMatchCandidates.size()); ++canIndex)
+    {
+        candidateGoodMatchPercentages[canIndex].first = 0.0;
+        if (surfDescriptors.rows > 0)
+        {
+            candidateGoodMatchPercentages[canIndex].first
+                = 100.0*candidateGoodMatchCnts[canIndex]/(surfDescriptors.rows);
+        }
 
-    maxClassMatchPercent.first = m_matcherTrainedImg2LabelList[bestMatchImageIndex].second;
-    maxClassMatchPercent.second = 100.0 * (*bestMatchImageIt) / surfDescriptors.rows;
+        candidateGoodMatchPercentages[canIndex].second = 0.0;
+        if (allCandidateDescriptors[canIndex].rows > 0)
+        {
+            candidateGoodMatchPercentages[canIndex].second
+                = 100.0*candidateGoodMatchCnts[canIndex]/(allCandidateDescriptors[canIndex].rows);
+        }
 
-    m_img2ClassifierResultMap[img2ClassifierResultMapKey].class2MatchPercentMap.insert(
-        make_pair(maxClassMatchPercent.first, maxClassMatchPercent.second));
-    m_img2ClassifierResultMap[img2ClassifierResultMapKey].class2MatchCntMap.insert(
-        make_pair(maxClassMatchPercent.first, *bestMatchImageIt));
+        m_img2ClassifierResultMap[img2ClassifierResultMapKey].class2MatchPercentsMap.insert(
+            make_pair(candidateClassNames[canIndex], candidateGoodMatchPercentages[canIndex]));
+        m_img2ClassifierResultMap[img2ClassifierResultMapKey].class2MatchCntMap.insert(
+            make_pair(candidateClassNames[canIndex], candidateGoodMatchCnts[canIndex]));
 
-    return maxClassMatchPercent;
+        if (candidateGoodMatchPercentages[canIndex].first > bestMatchPercent)
+        {
+            bestMatchPercent = candidateGoodMatchPercentages[canIndex].first;
+            bestMatchCnt = candidateGoodMatchCnts[canIndex];
+            bestMatchClass = candidateClassNames[canIndex];
+        }
+
+        if (candidateGoodMatchPercentages[canIndex].second > bestMatchPercent)
+        {
+            bestMatchPercent = candidateGoodMatchPercentages[canIndex].second;
+            bestMatchCnt = candidateGoodMatchCnts[canIndex];
+            bestMatchClass = candidateClassNames[canIndex];
+        }
+    }
+
+    return make_pair(bestMatchClass, make_pair(bestMatchPercent, bestMatchCnt));
 }
 
 bool SvmClassifierTester::EvaluateOneImgInternal(
@@ -270,7 +335,7 @@ bool SvmClassifierTester::EvaluateOneImgInternal(
 
     // Create a min-heap from classDecFuncVals;
     make_heap(classDecFuncVals.begin(), classDecFuncVals.end(), ClassDecFuncComparison(true));
-    vector<pair<string, float>> flannMatchCandidates;
+    vector<pair<string, float> > flannMatchCandidates;
     for (int canIndex = 0; canIndex < m_knnMatchCandidateCnt; ++canIndex)
     {
         flannMatchCandidates.push_back(classDecFuncVals.front());
@@ -281,49 +346,29 @@ bool SvmClassifierTester::EvaluateOneImgInternal(
     // Do the FLANN-based matching for the candidates. If the maximum percentage of the good matches exceeds a certain
     // threshold m_goodMatchPercentThreshold, then evaluate the class as the one with the maximum percentage; otherwise
     // evaluate the class as "unknown".
-    pair<string, float> bestMatch = FlannBasedKnnMatch(img2ClassifierResultMapKey);
+    pair<string, pair<float, int> > bestMatch = FlannBasedKnnMatch(img2ClassifierResultMapKey, flannMatchCandidates);
 
-    bool isCandidate = false;
-    for (const auto& candidate: flannMatchCandidates)
+    if (bestMatch.second.first >= m_goodMatchPercentThreshold)
     {
-        if (candidate.first == bestMatch.first)
+        if (bestMatch.second.second >= m_goodMatchCntThreshold)
         {
-            isCandidate = true;
-            break;
-        }
-    }
-
-    if (isCandidate)
-    {
-        if (bestMatch.second >= m_goodMatchPercentThreshold)
-        {
-            int bestMatchCnt = m_img2ClassifierResultMap[img2ClassifierResultMapKey].class2MatchCntMap[bestMatch.first];
-            if (bestMatchCnt >= m_goodMatchCntThreshold)
-            {
-                cout << "[INFO]: The maximum match percentage " << bestMatch.second << "% of " << img2ClassifierResultMapKey
-                    << " is above the threshold " << m_goodMatchPercentThreshold << "%, so evaluate the class as "
-                    << bestMatch.first << "." << endl;
-            }
-            else
-            {
-                bestMatch.first = "unknown";
-                cout << "[INFO]: Although the maximum match percentage " << bestMatch.second << "% of " << img2ClassifierResultMapKey
-                    << " is above the threshold " << m_goodMatchPercentThreshold << "%, the maximum match count " << bestMatchCnt
-                    << " is below the threshold " << m_goodMatchCntThreshold << ", so evaluate the class as unknown." << endl;
-            }
+            cout << "[INFO]: The maximum match percentage " << bestMatch.second.first << "% of " << img2ClassifierResultMapKey
+                << " is above the threshold " << m_goodMatchPercentThreshold << "%, so evaluate the class as "
+                << bestMatch.first << "." << endl;
         }
         else
         {
             bestMatch.first = "unknown";
-            cout << "[INFO]: The maximum match percentage " << bestMatch.second << "% of " << img2ClassifierResultMapKey
-                << " is below the threshold " << m_goodMatchPercentThreshold << "%, so evaluate the class as unknown." << endl;
+            cout << "[INFO]: Although the maximum match percentage " << bestMatch.second.first << "% of " << img2ClassifierResultMapKey
+                << " is above the threshold " << m_goodMatchPercentThreshold << "%, the maximum match count " << bestMatch.second.second
+                << " is below the threshold " << m_goodMatchCntThreshold << ", so evaluate the class as unknown." << endl;
         }
     }
     else
     {
         bestMatch.first = "unknown";
-        cout << "[INFO]: The FLANN-based knnMatch result of " << img2ClassifierResultMapKey
-            << " contradicts with the BOW-SVM result." << endl;
+        cout << "[INFO]: The maximum match percentage " << bestMatch.second.first << "% of " << img2ClassifierResultMapKey
+            << " is below the threshold " << m_goodMatchPercentThreshold << "%, so evaluate the class as unknown." << endl;
     }
 
     m_img2ClassifierResultMap[img2ClassifierResultMapKey].evaluatedClass = bestMatch.first;
@@ -349,14 +394,16 @@ void SvmClassifierTester::WriteResultsToFile()
         {
             cout << "[INFO]: " << imgResult.first << ": expected class = " << imgResult.second.expectedClass
                 << ", evaluated class = " << imgResult.second.evaluatedClass << " with score = "
-                << imgResult.second.class2ScoresMap[imgResult.second.evaluatedClass] << " and matchPercent = "
-                << imgResult.second.class2MatchPercentMap[imgResult.second.evaluatedClass] << "%." << endl;
+                << imgResult.second.class2ScoresMap[imgResult.second.evaluatedClass] << ", matchQueryPercent = "
+                << imgResult.second.class2MatchPercentsMap[imgResult.second.evaluatedClass].first << "%, matchTestPercent = "
+                << imgResult.second.class2MatchPercentsMap[imgResult.second.evaluatedClass].second << "%, and matchCnt = "
+                << imgResult.second.class2MatchCntMap[imgResult.second.evaluatedClass] << "." << endl;
         }
         else
         {
             cout << "[INFO]: " << imgResult.first << ": expected class = " << imgResult.second.expectedClass
                 << ", evaluated class = unknown." << endl;
-        }
+}
     }
 
     cout << "===============================================================================================" << endl;
@@ -429,7 +476,7 @@ void SvmClassifierTester::EvaluateOneImg(
         // and clear the map class2ScoresMap.
         m_img2ClassifierResultMap[imgFilename].evaluatedClass.clear();
         m_img2ClassifierResultMap[imgFilename].class2ScoresMap.clear();
-        m_img2ClassifierResultMap[imgFilename].class2MatchPercentMap.clear();
+        m_img2ClassifierResultMap[imgFilename].class2MatchPercentsMap.clear();
         m_img2ClassifierResultMap[imgFilename].class2MatchCntMap.clear();
     }
 
@@ -477,7 +524,7 @@ void SvmClassifierTester::EvaluateImgs(const string& imgBasePath)
             // and clear the map class2ScoresMap.
             m_img2ClassifierResultMap[img2ClassifierResultMapKey].evaluatedClass.clear();
             m_img2ClassifierResultMap[img2ClassifierResultMapKey].class2ScoresMap.clear();
-            m_img2ClassifierResultMap[img2ClassifierResultMapKey].class2MatchPercentMap.clear();
+            m_img2ClassifierResultMap[img2ClassifierResultMapKey].class2MatchPercentsMap.clear();
             m_img2ClassifierResultMap[img2ClassifierResultMapKey].class2MatchCntMap.clear();
         }
     }

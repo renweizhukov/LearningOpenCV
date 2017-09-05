@@ -6,7 +6,6 @@
  */
 
 #include "Utility.h"
-#include "FlannBasedSavableMatcher.h"
 #include "SvmClassifierTrainer.h"
 
 using namespace std;
@@ -24,12 +23,12 @@ SvmClassifierTrainer::SvmClassifierTrainer(
     const string& vocabularyFile,
     const string& descriptorsFile,
     const std::string& imgBasePath,
-    const std::string& matcherFile,
+    const std::string& matcherDescriptorsFile,
     const string& classifierFilePrefix) :
     m_vocabularyFile(vocabularyFile),
     m_descriptorsFile(descriptorsFile),
     m_imgBasePath(imgBasePath),
-    m_matcherFile(matcherFile),
+    m_matcherDescriptorsFile(matcherDescriptorsFile),
     m_classifierFilePrefix(classifierFilePrefix),
     m_surfMinHessian(400)   // TODO: Expose m_cntBowClusters and m_surfMinHessian as configurable parameters.
 {
@@ -44,13 +43,13 @@ void SvmClassifierTrainer::Reset(
     const std::string& vocabularyFile,
     const std::string& descriptorsFile,
     const std::string& imgBasePath,
-    const std::string& matcherFile,
+    const std::string& matcherDescriptorsFile,
     const std::string& classifierFilePrefix)
 {
     m_vocabularyFile = vocabularyFile;
     m_descriptorsFile = descriptorsFile;
     m_imgBasePath = imgBasePath;
-    m_matcherFile = matcherFile;
+    m_matcherDescriptorsFile = matcherDescriptorsFile;
     m_classifierFilePrefix = classifierFilePrefix;
 
     m_img2DescriptorsMap.clear();
@@ -219,58 +218,52 @@ void SvmClassifierTrainer::TrainAndSaveSvms()
         << " ms." << endl;
 }
 
-void SvmClassifierTrainer::TrainAndSaveFlannMatcher()
+void SvmClassifierTrainer::ComputeAndSaveMatcherDescriptors()
 {
-    // We assume that each label has only one image.
-    vector<pair<string, string> > trainedImgWithLabels;
-    Utility::GetImagesWithLabels(m_imgBasePath, trainedImgWithLabels);
-    cout << "[INFO]: Computing the SURF descriptors of " << trainedImgWithLabels.size()
-        << " images for training the FLANN-based matcher." << endl;
+    // We assume that each label has only one image for the FLANN-based matcher.
+    vector<pair<string, string> > matcherImgWithLabels;
+    Utility::GetImagesWithLabels(m_imgBasePath, matcherImgWithLabels);
+
+    FileStorage fs(m_matcherDescriptorsFile, FileStorage::WRITE);
+
+    fs << "image_label_list" << "[";
+    for (const auto& labelledImg : matcherImgWithLabels)
+    {
+        // We write the image filename first and then its label.
+        fs << labelledImg.second << labelledImg.first;
+    }
+    fs << "]";  // End of image_label_list
+    cout << "[INFO]: Write the filenames of " << matcherImgWithLabels.size() << " images with their labels to file "
+        << m_matcherDescriptorsFile << " for the FLANN-based matcher." << endl;
 
     Ptr<SurfFeatureDetector> detector = SURF::create(m_surfMinHessian);
 
-    vector<Mat> allImgDescriptors;
-    vector<KeyPoint> oneImgKeypoints;
-    Mat oneImgDescriptors;
-
-    vector<pair<string, string> > trainedImgFilename2LabelList;
-    for (auto& labelledImg : trainedImgWithLabels)
+    int imgIndex = 0;
+    for (const auto& labelledImg : matcherImgWithLabels)
     {
         string imgLabel = labelledImg.first;
         string imgFile = labelledImg.second;
         string imgFullPath = m_imgBasePath + "/" + imgLabel + "/" + imgFile;
 
-        trainedImgFilename2LabelList.push_back(make_pair(imgFile, imgLabel));
-
         Mat img = imread(imgFullPath);
-        detector->detectAndCompute(img, noArray(), oneImgKeypoints, oneImgDescriptors);
+        vector<KeyPoint> oneImgKeypoints;
+        Mat oneImgDescriptors;
 
-        allImgDescriptors.push_back(oneImgDescriptors);
+        auto tStart = Clock::now();
+        detector->detectAndCompute(img, noArray(), oneImgKeypoints, oneImgDescriptors);
+        auto tEnd = Clock::now();
+
+        cout << "[INFO]: Computed the SURF descriptors of " << imgLabel << " for the FLANN-based matcher in "
+            << chrono::duration_cast<chrono::milliseconds>(tEnd - tStart).count() << " ms." << endl;
+
+        // Key names must start with a letter or '_'. Since the image filename may start with a non-letter,
+        // e.g., a digit, we don't use the image filename as the key name.
+        fs << "descriptors_" + to_string(imgIndex++) << oneImgDescriptors;
+        cout << "[INFO]: Write " << oneImgDescriptors.rows << " descriptors of image " << imgFile
+            << " with label " << imgLabel << " to file " << m_matcherDescriptorsFile << "." << endl;
     }
 
-    Ptr<FlannBasedSavableMatcher> flannMatcher = FlannBasedSavableMatcher::create();
-
-    string matcherFileDir;
-    string matcherFilename;
-    Utility::SeparateDirFromFilename(m_matcherFile, matcherFileDir, matcherFilename);
-
-    cout << "[INFO]: Training the FLANN-based matcher with the SURF descriptors of the images." << endl;
-
-    flannMatcher->add(allImgDescriptors);
-
-    auto tTrainStart = Clock::now();
-    flannMatcher->train();
-    auto tTrainEnd = Clock::now();
-    cout << "[INFO]: Trained the FLANN-based matcher in " << chrono::duration_cast<chrono::milliseconds>(tTrainEnd - tTrainStart).count()
-        << " ms." << endl;
-
-    cout << "[INFO]: Saving the trained FLANN-based matcher." << endl;
-
-    flannMatcher->setTrainedImgFilename2LabelList(trainedImgFilename2LabelList);
-    flannMatcher->setFlannIndexFileDir(matcherFileDir);
-    flannMatcher->setFlannIndexFilename(matcherFilename + "_klannindex");
-
-    flannMatcher->save(m_matcherFile);
+    fs.release();
 }
 
 void SvmClassifierTrainer::Train()
@@ -278,6 +271,6 @@ void SvmClassifierTrainer::Train()
     if(ComputeBowDescriptors())
     {
         TrainAndSaveSvms();
-        TrainAndSaveFlannMatcher();
+        ComputeAndSaveMatcherDescriptors();
     }
 }

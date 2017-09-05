@@ -86,7 +86,7 @@ void VocabularyBuilder::ComputeDescriptors(OutputArray descriptors)
         detector->detectAndCompute(img, noArray(), imgKeypoints, imgDescriptors);
 
         // Key names must start with a letter or '_'. Since the image filename may start with a non-letter,
-        // e.g., a digit, we have to prefix the key name with "descriptors_".
+        // e.g., a digit, we don't use the image filename as the key name.
         fs << "descriptors_" + to_string(imgIndex++) << imgDescriptors;
         cout << "[INFO]: Write " << imgDescriptors.rows << " descriptors of image " << imgFile
             << " with label " << imgLabel << " to file " << m_descriptorsFile << "." << endl;
