@@ -144,17 +144,17 @@ bool GetSurfMask(const Mat& maskImg, Mat& mask, vector<Point>& maxConvexContour)
     // Set the left and right boundaries of the object.
     for (int rowIndex = leftBoundaryY; rowIndex < edges.rows; ++rowIndex)
     {
-        edges.at<char>(rowIndex, leftBoundaryX) = 255;
+        edges.at<uchar>(rowIndex, leftBoundaryX) = 255;
     }
     for (int rowIndex = rightBoundaryY; rowIndex < edges.rows; ++rowIndex)
     {
-        edges.at<char>(rowIndex, rightBoundaryX) = 255;
+        edges.at<uchar>(rowIndex, rightBoundaryX) = 255;
     }
 
     // Set the lower boundary of the book.
     for (int colIndex = 0; colIndex < edges.cols; ++colIndex)
     {
-        edges.at<char>(edges.rows - 1, colIndex) = 255;
+        edges.at<uchar>(edges.rows - 1, colIndex) = 255;
     }
 
     // Find all the contours.

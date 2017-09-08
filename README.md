@@ -424,3 +424,11 @@ $ ./FlannKnnSavableMatchingM2N match -i [image-file] -l [expected-label] -m [mat
 ```
 
 where the option "-l" specifies the expected label of the input image.
+
+## 20. LineFollowingContour
+
+This executable recognizes the "maximum" black line in a white paper where the maximum is in the sense of the area (i.e., the number of pixels) occupied by the line.
+
+```
+.\LineFollowingContour [image-file]
+```
