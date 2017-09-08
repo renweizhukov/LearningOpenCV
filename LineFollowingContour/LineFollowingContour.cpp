@@ -87,24 +87,24 @@ int main(int argc, char** argv)
     // the contour of the black track line found later won't be closed.
     for (int rowIndex = 0; rowIndex < edges.rows; ++rowIndex)
     {
-        if (croppedImgSharpGray.at<uchar>(rowIndex, 0) < minVal + 0.2*(maxVal - minVal))
+        if (croppedImgSharpGray.at<uchar>(rowIndex, 0) < minVal + 0.3*(maxVal - minVal))
         {
             edges.at<uchar>(rowIndex, 0) = 255;
         }
 
-        if (croppedImgSharpGray.at<uchar>(rowIndex, edges.cols - 1) < minVal + 0.2*(maxVal - minVal))
+        if (croppedImgSharpGray.at<uchar>(rowIndex, edges.cols - 1) < minVal + 0.3*(maxVal - minVal))
         {
             edges.at<uchar>(rowIndex, edges.cols - 1) = 255;
         }
     }
     for (int colIndex = 0; colIndex < edges.cols; ++colIndex)
     {
-        if (croppedImgSharpGray.at<uchar>(0, colIndex) < minVal + 0.2*(maxVal - minVal))
+        if (croppedImgSharpGray.at<uchar>(0, colIndex) < minVal + 0.3*(maxVal - minVal))
         {
             edges.at<uchar>(0, colIndex) = 255;
         }
 
-        if (croppedImgSharpGray.at<uchar>(edges.rows - 1, colIndex) < minVal + 0.2*(maxVal - minVal))
+        if (croppedImgSharpGray.at<uchar>(edges.rows - 1, colIndex) < minVal + 0.3*(maxVal - minVal))
         {
             edges.at<uchar>(edges.rows - 1, colIndex) = 255;
         }
