@@ -429,6 +429,14 @@ where the option "-l" specifies the expected label of the input image.
 
 This executable recognizes the "maximum" black line in a white paper where the maximum is in the sense of the area (i.e., the number of pixels) occupied by the line.
 
-```
+```bash
 .\LineFollowingContour [image-file]
+```
+
+## 21. LineFollowingHoughTf
+
+This executable recognizes the "maximum" black line in a white paper where the maximum is in the sense of the line length.
+
+```bash
+.\LineFollowingHoughTf [image-file]
 ```
