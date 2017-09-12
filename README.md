@@ -425,12 +425,12 @@ $ ./FlannKnnSavableMatchingM2N match -i [image-file] -l [expected-label] -m [mat
 
 where the option "-l" specifies the expected label of the input image.
 
-## 20. LineFollowingContour
+## 20. LineFollowingCannyEdge
 
 This executable recognizes the "maximum" black line in a white paper where the maximum is in the sense of the area (i.e., the number of pixels) occupied by the line. It uses the Canny Edge Detection to generate the contours.
 
 ```bash
-.\LineFollowingContour [image-file]
+.\LineFollowingCannyEdge [image-file]
 ```
 
 ## 21. LineFollowingHoughTf
