@@ -1,7 +1,7 @@
 /*
- * LineFollowingHoughTf.cpp
+ * LineFollowingThresholding.cpp
  *
- *  Created on: Sep 8, 2017
+ *  Created on: Sep 11, 2017
  *      Author: renwei
  */
 
@@ -72,70 +72,28 @@ int main(int argc, char** argv)
     namedWindow("The thresholded image", WINDOW_AUTOSIZE);
     imshow("The thresholded image", croppedImgThresholded);
 
-    // Find lines using the progressive probabilistic Hough Transform.
-    vector<Vec4i> linesEndpoints;
-    const double rhoResolution = 1.0;
-    const double thetaResolution = CV_PI/180.0;
-    const int houghThreshold = 5;
-    const double minLineLen = 25;
-    const double maxLineGap = 5;
-    auto tHoughStart = Clock::now();
-    HoughLinesP(
-        croppedImgThresholded,
-        linesEndpoints,
-        rhoResolution,
-        thetaResolution,
-        houghThreshold,
-        minLineLen,
-        maxLineGap);
-    auto tHoughEnd = Clock::now();
-    printf("[INFO]: Finish the Hough Transform in %ld ms.\n",
-        chrono::duration_cast<chrono::milliseconds>(tHoughEnd - tHoughStart).count());
-
-    // Display only the Hough lines and overlay the Hough lines on the original source color image.
-    Mat lines(croppedImgThresholded.size(), CV_8UC1, Scalar::all(0));
-
-    for (const auto& lineEndpoints : linesEndpoints)
-    {
-        Point pt1(lineEndpoints[0], lineEndpoints[1]);
-        Point pt2(lineEndpoints[2], lineEndpoints[3]);
-
-        // Draw the white hough lines in a totally black image.
-        line(lines, pt1, pt2, Scalar(255, 255, 255));
-
-        // Overlay the hough lines on the Canny edges.
-        //line(srcImg,
-        //    Point(pt1.x, pt1.y + srcImg.rows/2),
-        //    Point(pt2.x, pt2.y + srcImg.rows/2),
-        //    Scalar(0, 0, 255));
-    }
-
-    // Display the hough lines.
-    namedWindow("The Hough lines", WINDOW_AUTOSIZE);
-    imshow("The Hough lines", lines);
-
     // Find all the contours.
     vector<vector<Point>> contours;
     auto tContourStart = Clock::now();
-    findContours(lines, contours, noArray(), RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+    findContours(croppedImgThresholded, contours, noArray(), RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
     auto tContourEnd = Clock::now();
     printf("[INFO]: Finish %ld contours in %ld ms.\n", contours.size(),
         chrono::duration_cast<chrono::milliseconds>(tContourEnd - tContourStart).count());
 
-    // Find the contour with the maximum length.
+    // Find the contour with the maximum area.
     int maxContourIndex = -1;
-    float maxLen = 0;
+    float maxArea = 0;
     for (int contourIndex = 0; contourIndex < static_cast<int>(contours.size()); ++contourIndex)
     {
-        float len = arcLength(contours[contourIndex], false);
-        if (len > maxLen)
+        float area = contourArea(contours[contourIndex]);
+        if (area > maxArea)
         {
             maxContourIndex = contourIndex;
-            maxLen = len;
+            maxArea = area;
         }
     }
 
-    printf("[INFO]: max contour length = %f.\n", maxLen);
+    printf("[INFO]: max contour area = %f.\n", maxArea);
 
     if (maxContourIndex != -1)
     {
@@ -155,7 +113,7 @@ int main(int argc, char** argv)
     }
     else
     {
-        printf("[ERROR]: Can't find the contour with the maximum length.\n\n");
+        printf("[ERROR]: Can't find the contour with the maximum area.\n\n");
     }
 
     waitKey();
@@ -163,3 +121,5 @@ int main(int argc, char** argv)
 
     return 0;
 }
+
+

@@ -427,7 +427,7 @@ where the option "-l" specifies the expected label of the input image.
 
 ## 20. LineFollowingContour
 
-This executable recognizes the "maximum" black line in a white paper where the maximum is in the sense of the area (i.e., the number of pixels) occupied by the line.
+This executable recognizes the "maximum" black line in a white paper where the maximum is in the sense of the area (i.e., the number of pixels) occupied by the line. It uses the Canny Edge Detection to generate the contours.
 
 ```bash
 .\LineFollowingContour [image-file]
@@ -439,4 +439,12 @@ This executable recognizes the "maximum" black line in a white paper where the m
 
 ```bash
 .\LineFollowingHoughTf [image-file]
+```
+
+## 22. LineFollowingThresholding
+
+This executable recognizes the "maximum" black line in a white paper where the maximum is in the sense of the area (i.e., the number of pixels) occupied by the line. It uses the simple invert thresholding to generate the contours.
+
+```bash
+.\LineFollowingThresholding [image-file]
 ```
