@@ -430,7 +430,7 @@ where the option "-l" specifies the expected label of the input image.
 This executable recognizes the "maximum" black line in a white paper where the maximum is in the sense of the area (i.e., the number of pixels) occupied by the line. It uses the Canny Edge Detection to generate the contours.
 
 ```bash
-.\LineFollowingCannyEdge [image-file]
+$ .\LineFollowingCannyEdge [image-file]
 ```
 
 ## 21. LineFollowingHoughTf
@@ -438,7 +438,7 @@ This executable recognizes the "maximum" black line in a white paper where the m
 This executable recognizes the "maximum" black line in a white paper where the maximum is in the sense of the line length.
 
 ```bash
-.\LineFollowingHoughTf [image-file]
+$ .\LineFollowingHoughTf [image-file]
 ```
 
 ## 22. LineFollowingThresholding
@@ -446,5 +446,22 @@ This executable recognizes the "maximum" black line in a white paper where the m
 This executable recognizes the "maximum" black line in a white paper where the maximum is in the sense of the area (i.e., the number of pixels) occupied by the line. It uses the simple invert thresholding to generate the contours.
 
 ```bash
-.\LineFollowingThresholding [image-file]
+$ .\LineFollowingThresholding [image-file]
+```
+
+## 23. GroupHsvHistComparison
+
+Slightly different from SimpleHsvHistComparison which compares the histograms of two BGR-colored images, this executable compares the histogram of each BGR-colored image within a given directory with the histograms of two BGR-colored images, respectively. Note that although it supports the same comparison methods as SimpleHsvHistComparison, only one comparison method can be specified in each run.
+
+To get the help info,
+
+```bash
+$ ./GroupHsvHistComparison -h
+```
+
+Below are a couple of sample commands.
+
+```bash
+$ ./GroupHsvHistComparison ./image1.png ./image2.png -d ./image-dir/
+$ ./GroupHsvHistComparison ./image1.png ./image2.png -d ./image-dir/ -c h -m chisqr_alt
 ```
