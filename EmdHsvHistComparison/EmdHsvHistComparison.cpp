@@ -76,7 +76,7 @@ void Str2HsvChannels(
     vector<int>& histSize,
     vector<float>& ranges)
 {
-    transform(strHsvChannels.begin(), strHsvChannels.end(), strHsvChannels.begin(), ::tolower);
+    transform(hsvChannelStr.begin(), hsvChannelStr.end(), hsvChannelStr.begin(), ::tolower);
 
     hsvChannels.clear();
     histSize.clear();
