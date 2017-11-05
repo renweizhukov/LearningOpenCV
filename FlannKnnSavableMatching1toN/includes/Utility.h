@@ -34,6 +34,13 @@ public:
         std::string& filename);
 
     static std::string CvType2Str(const int type);
+
+    static void FilterKeypointsAndDescriptors(
+        const cv::Rect2f& rect,
+        const std::vector<cv::KeyPoint>& keypoints,
+        const cv::Mat& descriptors,
+        std::vector<cv::KeyPoint>& filteredKeypoints,
+        cv::Mat& filteredDescriptors);
 };
 
 #endif /* INCLUDES_UTILITY_H_ */

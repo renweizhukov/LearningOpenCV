@@ -31,7 +31,11 @@ int main(int argc, char** argv)
         ("command", po::value<string>()->required(), "train | match | help")   // This is a positional option.
         ("image,i", po::value<string>(), "The image file which will be used for SURF matching")
         ("image-dir,d", po::value<string>(), "The directory of images which will be used for training the FLANN-based matcher")
-        ("matcher-file,m", po::value<string>(), "The file which will store the FLANN-based matcher. It is an output for training and an input for SURF matching");
+        ("matcher-file,m", po::value<string>(), "The file which will store the FLANN-based matcher. It is an output for training and an input for SURF matching")
+        ("tlx", po::value<int>(), "The x-coordinate of the top-left corner of the cropped rectangular area when we do the match")
+        ("tly", po::value<int>(), "The y-coordinate of the top-left corner of the cropped rectangular area when we do the match")
+        ("brx", po::value<int>(), "The x-coordinate of the bottom-right corner of the cropped rectangular area when we do the match")
+        ("bry", po::value<int>(), "The y-coordinate of the bottom-right corner of the cropped rectangular area when we do the match");
 
     po::positional_options_description posOpt;
     posOpt.add("command", 1);   // Only one command is accepted at one execution.
@@ -55,12 +59,44 @@ int main(int argc, char** argv)
     cmd = vm["command"].as<string>();
     transform(cmd.begin(), cmd.end(), cmd.begin(), ::tolower);
 
-    string imgFile;
-    string imgDir;
     string matcherFile;
-
     string matcherFileDir;
     string matcherFilename;
+
+    int tlx = -1;
+    if (vm.count("tlx") > 0)
+    {
+        tlx = vm["tlx"].as<int>();
+        cout << "[INFO]: The x-coordinate of the top-left corner of the cropped rectangular area is set to " << tlx << "." << endl;
+    }
+
+    int tly = -1;
+    if (vm.count("tly") > 0)
+    {
+        tly = vm["tly"].as<int>();
+        cout << "[INFO]: The y-coordinate of the top-left corner of the cropped rectangular area is set to " << tly << "." << endl;
+    }
+
+    int brx = -1;
+    if (vm.count("brx") > 0)
+    {
+        brx = vm["brx"].as<int>();
+        cout << "[INFO]: The x-coordinate of the bottom-right corner of the cropped rectangular area is set to " << brx << "." << endl;
+    }
+
+    int bry = -1;
+    if (vm.count("bry") > 0)
+    {
+        bry = vm["bry"].as<int>();
+        cout << "[INFO]: The y-coordinate of the bottom-right corner of the cropped rectangular area is set to " << bry << "." << endl;
+    }
+
+    // Create the cropped rectangle given by its top-left corner and its bottom-right corner.
+    Rect2f rect(Point2f(static_cast<float>(tlx), static_cast<float>(tly)),
+        Point2f(static_cast<float>(brx), static_cast<float>(bry)));
+    cout << "[INFO]: The area of the cropped rectangle = " << rect.area() << "." << endl;
+    cout << "[INFO]: The top-left corner of the cropped rectangle = (" << rect.tl().x << ", " << rect.tl().y << ")." << endl;
+    cout << "[INFO]: The bottom-right corner of the cropped rectangle = (" << rect.br().x << ", " << rect.br().y << ")." << endl;
 
     const int minHessian = 400;
     Ptr<SurfFeatureDetector> detector = SURF::create(minHessian);
@@ -73,6 +109,7 @@ int main(int argc, char** argv)
     }
     else if (cmd == "train")
     {
+        string imgDir;
         if (vm.count("image-dir") == 0)
         {
             cerr << "[ERROR]: A directory of images is required to be given for training the FLANN-based matcher." << endl << endl;
@@ -103,7 +140,26 @@ int main(int argc, char** argv)
         for (auto& oneImg: imgs)
         {
             detector->detectAndCompute(oneImg, noArray(), oneImgKeypoints, oneImgDescriptors);
-            allImgDescriptors.push_back(oneImgDescriptors);
+            if (rect.area() > 0)
+            {
+                // Keep the keypoint and the corresponding descriptor if the keypoint
+                // is located within the rectangle, otherwise throw them away.
+                vector<KeyPoint> filteredOneImgKeypoints;
+                Mat filteredOneImgDescriptors;
+
+                Utility::FilterKeypointsAndDescriptors(
+                    rect,
+                    oneImgKeypoints,
+                    oneImgDescriptors,
+                    filteredOneImgKeypoints,
+                    filteredOneImgDescriptors);
+
+                allImgDescriptors.push_back(filteredOneImgDescriptors);
+            }
+            else
+            {
+                allImgDescriptors.push_back(oneImgDescriptors);
+            }
         }
 
         cout << "[INFO]: Training the FLANN-based matcher with the SURF descriptors of the images." << endl;
@@ -126,6 +182,7 @@ int main(int argc, char** argv)
     }
     else if (cmd == "match")
     {
+        string imgFile;
         if (vm.count("image") == 0)
         {
             cerr << "[ERROR]: An image is required to be given for doing the SURF matching." << endl << endl;
@@ -154,6 +211,23 @@ int main(int argc, char** argv)
         vector<KeyPoint> imgKeypoints;
         Mat imgDescriptors;
         detector->detectAndCompute(img, noArray(), imgKeypoints, imgDescriptors);
+
+        if (rect.area() > 0)
+        {
+            // Keep the keypoint and the corresponding descriptor if the keypoint
+            // is located within the rectangle, otherwise throw them away.
+            vector<KeyPoint> filteredImgKeypoints;
+            Mat filteredImgDescriptors;
+
+            Utility::FilterKeypointsAndDescriptors(
+                rect,
+                imgKeypoints,
+                imgDescriptors,
+                filteredImgKeypoints,
+                filteredImgDescriptors);
+
+            imgDescriptors = filteredImgDescriptors;
+        }
 
         cout << "[INFO]: Loading the trained FLANN-based matcher." << endl;
 

@@ -125,3 +125,25 @@ string Utility::CvType2Str(const int type)
 
     return typeStr;
 }
+
+void Utility::FilterKeypointsAndDescriptors(
+        const cv::Rect2f& rect,
+        const std::vector<cv::KeyPoint>& keypoints,
+        const cv::Mat& descriptors,
+        std::vector<cv::KeyPoint>& filteredKeypoints,
+        cv::Mat& filteredDescriptors)
+{
+    for (size_t keypointIndex = 0; keypointIndex < keypoints.size(); ++keypointIndex)
+    {
+        // Keep the keypoint and the corresponding descriptor if the keypoint
+        // is located within the rectangle, otherwise throw them away.
+        if (rect.contains(keypoints[keypointIndex].pt))
+        {
+            filteredKeypoints.push_back(keypoints[keypointIndex]);
+            filteredDescriptors.push_back(descriptors.row(keypointIndex));
+        }
+    }
+
+    cout << "[INFO]: Keep " << filteredDescriptors.rows << " descriptors out of "
+        << descriptors.rows << "." << endl;
+}
