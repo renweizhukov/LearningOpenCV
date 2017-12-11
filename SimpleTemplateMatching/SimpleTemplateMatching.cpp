@@ -198,7 +198,6 @@ void MatchingMethod(int, void*)
 
     // Do the Template Matching and Normalize
     matchTemplate(srcImg, templImg, result, matchMethod);
-    normalize(result, result, 0, 1, NORM_MINMAX);
 
     //cout << "[DEBUG]: result #rows = " << result.rows << ", #cols = " << result.cols << "." << endl;
 
@@ -216,15 +215,17 @@ void MatchingMethod(int, void*)
     if ((matchMethod == CV_TM_SQDIFF) || (matchMethod == CV_TM_SQDIFF_NORMED))
     {
         matchLoc = minLoc;
+        cout << "[INFO]: Template matching minVal = " << minVal << "." << endl;
     }
     else
     {
         matchLoc = maxLoc;
+        cout << "[INFO]: Template matching maxVal = " << maxVal << "." << endl;
     }
 
     // Show me what you got
-    rectangle(imgDisplay, matchLoc, Point(matchLoc.x + templImg.cols, matchLoc.y + templImg.rows), Scalar::all(0), 2, 8, 0);
-    rectangle(result, matchLoc, Point(matchLoc.x + templImg.cols , matchLoc.y + templImg.rows), Scalar::all(0), 2, 8, 0);
+    rectangle(imgDisplay, matchLoc, Point(matchLoc.x + templImg.cols, matchLoc.y + templImg.rows), Scalar(0, 0, 255), 2, 8, 0);
+    rectangle(result, matchLoc, Point(matchLoc.x + templImg.cols , matchLoc.y + templImg.rows), Scalar(255, 0, 0), 2, 8, 0);
 
     imshow(imgWindow, imgDisplay);
     imshow(resWindow, result);
