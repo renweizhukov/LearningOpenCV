@@ -196,7 +196,7 @@ void MatchingMethod(int, void*)
     //cout << "[DEBUG]: srcImg #rows = " << srcImg.rows << ", #cols = " << srcImg.cols << "." << endl;
     //cout << "[DEBUG]: templImg #rows = " << templImg.rows << ", #cols = " << templImg.cols << "." << endl;
 
-    // Do the Template Matching and Normalize
+    // Do the Template Matching.
     matchTemplate(srcImg, templImg, result, matchMethod);
 
     //cout << "[DEBUG]: result #rows = " << result.rows << ", #cols = " << result.cols << "." << endl;
